@@ -150,7 +150,9 @@ kbd{font:inherit;font-size:10.5px;font-weight:600;color:var(--mu);border:1px sol
 /* Roteiro */
 .script{display:flex;flex-direction:column;position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:hidden}
 @media (max-width:1100px){.script{position:static;max-height:none}}
-.stabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);padding:0 14px;flex-wrap:wrap}
+.stabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);padding:0 10px;overflow-x:auto;scrollbar-width:none}
+.stabs::-webkit-scrollbar{display:none}
+.stabs button{white-space:nowrap;flex:none}
 .stabs button{border:0;background:none;padding:15px 8px;font-weight:600;color:var(--mu);border-bottom:2px solid transparent}
 .stabs button[aria-current="true"]{color:var(--tx);border-bottom-color:var(--pr)}
 .sbody{padding:18px 20px;display:grid;gap:12px;overflow:auto}
@@ -228,6 +230,37 @@ details.obj p{margin:0 0 12px}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:no-preference){.lead{animation:rise .2s ease-out}@keyframes rise{from{transform:translateY(4px);opacity:.6}to{transform:none;opacity:1}}}
 
+/* Pesquisa quantitativa (na ligação) */
+.sbody>.seg{justify-self:start;flex-wrap:wrap}
+.branch{font-size:13.5px;line-height:1.55;padding-left:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.qprog{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--mu)}
+.qprog .bar{flex:1;margin:0}
+.qq{display:grid;gap:9px;padding:12px 0;border-top:1px solid var(--bd)}
+.qt{display:flex;gap:10px;font-weight:600;font-size:14px;line-height:1.4}
+.qn{width:22px;height:22px;flex:none;border-radius:50%;border:1px solid var(--bd2);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--mu)}
+.qq.done .qn{background:var(--pr);border-color:var(--pr);color:#fff}
+.opts{display:flex;flex-wrap:wrap;gap:6px;padding-left:32px}
+.opt{border:1px solid var(--bd2);background:var(--in);color:var(--tx);border-radius:8px;padding:6px 10px;font-size:12.5px;line-height:1.3;text-align:left}
+.opt:hover{background:var(--hov)}
+.opt[aria-pressed="true"]{background:var(--pr-soft);border-color:var(--pr-line);color:var(--tx);font-weight:600}
+.qlist{margin:0;padding-left:20px;display:grid;gap:10px;font-size:13.5px}
+.qlist li div{font-size:12.5px;margin-top:2px}
+
+/* Reunião: roteiro qualitativo */
+#qualiModal{align-items:start}
+#qualiModal>.card{max-width:760px;margin:24px 0}
+.qmhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.qmhead h2{font-size:22px;letter-spacing:-.015em}
+.qsec{display:grid;gap:14px;border-top:1px solid var(--bd);padding-top:16px}
+.qitem{display:grid;gap:6px}
+.qitem label{display:flex;gap:10px;font-weight:600;line-height:1.45}
+.qitem .legend{padding-left:32px}
+.qitem textarea{margin-left:32px;width:calc(100% - 32px);min-height:72px}
+@media (max-width:560px){.qitem textarea,.qitem .legend,.opts{margin-left:0;padding-left:0;width:100%}}
+.qsum{margin:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px;font-size:13px}
+.qsum dt{color:var(--mu)}.qsum dd{margin:0;font-weight:600}
+@media (max-width:560px){.qsum{grid-template-columns:minmax(0,1fr)}}
+
 </style>
 </head>
 <body>
@@ -252,6 +285,7 @@ details.obj p{margin:0 0 12px}
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="signout">Sair</button><button class="btn gold" data-act="closeacct">Fechar</button></div>
   </div>
 </div>
+<div class="modal" id="qualiModal" hidden><div class="card" role="dialog" aria-label="Roteiro da reunião"></div></div>
 <div class="modal" id="impModal" hidden><div class="card" role="dialog" aria-label="Importar leads"></div></div>
 <div class="toast" id="toast" hidden></div>
 <script>
@@ -271,27 +305,82 @@ try{firebase.initializeApp(firebaseConfig);auth=firebase.auth();rdb=firebase.dat
 /* ===== Dados fixos ===== */
 const DEFAULT_TEAM=["Oliver","Don","Lucas","Camilla","Sophia","Maria Eduarda","William","Arthur","Antonella","Fritsch"];
 const SEG={med:{n:"Médico",phrase:"clínicas e consultórios médicos"},odo:{n:"Odonto",phrase:"consultórios odontológicos"},est:{n:"Estética",phrase:"clínicas de estética"},sal:{n:"Salão",phrase:"salões e espaços de beleza"}};
-const ST_LABEL={novo:"Novo",tentando:"Tentando",retornar:"Retornar",reuniao:"Reunião",recusou:"Recusou",fora:"Fora do perfil",sem_retorno:"Sem retorno",errado:"Número errado"};
+const ST_LABEL={novo:"Novo",tentando:"Tentando",retornar:"Retornar",respondeu:"Respondeu a pesquisa",reuniao:"Reunião",recusou:"Recusou",fora:"Fora do perfil",sem_retorno:"Sem retorno",errado:"Número errado"};
 const OPEN=new Set(["novo","tentando","retornar"]);
 const RES={
   na:{t:"Não atendeu",k:"n",c:"r-warn",p:1},
   cp:{t:"Caixa postal",k:"c",c:"r-warn",p:1},
   wa:{t:"Mandei WhatsApp",k:"w",c:"r-neutral",p:1},
   ret:{t:"Pediu retorno",k:"r",c:"r-info",p:2},
+  pesq:{t:"Respondeu a pesquisa",k:"p",c:"r-info",p:3},
   reu:{t:"Aceitou reunião",k:"a",c:"r-ok",p:6},
   rec:{t:"Recusou",k:"x",c:"r-bad",p:2},
   fora:{t:"Fora do perfil",k:"f",c:"r-bad",p:2},
   err:{t:"Número errado",k:"e",c:"r-bad",p:1}
 };
-const TALK=new Set(["ret","reu","rec","fora"]);
+const TALK=new Set(["ret","pesq","reu","rec","fora"]);
+
+/* ===== Pesquisa quantitativa (na ligação) ===== */
+const QUANTI=[
+ {id:"q1",t:"Qual a especialidade da clínica?",o:["Odontologia","Estética","Psicologia","Fisioterapia","Medicina","Salão de beleza","Mais de uma especialidade","Outra"]},
+ {id:"q2",t:"Quantas pessoas trabalham na clínica no total, contando profissionais de saúde, recepção e administrativo?",o:["Só eu","2 a 3","4 a 6","7 a 10","Mais de 10"]},
+ {id:"q3",t:"Qual sistema de gestão a clínica usa hoje?",o:["Nenhum: papel, planilha ou WhatsApp","Um sistema gratuito ou básico","Um sistema pago de mercado","Um sistema feito sob medida ou antigo","Um sistema só de agenda ou só de prontuário, e o resto fica fora"]},
+ {id:"q4",t:"Há quanto tempo a clínica está no mercado?",o:["Menos de 1 ano","1 a 3 anos","4 a 6 anos","7 a 10 anos","Mais de 10 anos"]},
+ {id:"q5",t:"Quantos atendimentos a clínica faz por semana?",o:["Até 20","21 a 50","51 a 100","101 a 200","Mais de 200"]},
+ {id:"q6",t:"Quem cuida da agenda também atende pacientes?",o:["Sim, é o próprio dono","Sim, é outro profissional da clínica","Não, é uma recepcionista","Não, é um gerente ou administrador","Não, é um serviço terceirizado"]},
+ {id:"q7",t:"Como a agenda é controlada hoje?",o:["Papel","Planilha","WhatsApp","Google Agenda","Sistema pago","Sistema gratuito","Mais de um meio"]},
+ {id:"q8",t:"Como é feito o controle de estoque de insumos?",o:["Não existe controle","De cabeça, sem registro","Papel","Planilha","Sistema"]},
+ {id:"q9",t:"Como você descobre que um produto está perto de vencer?",o:["Não descubro, só vejo quando vence","Quando vou usar","Confiro a validade de vez em quando","Anoto a validade em papel ou planilha","O sistema me avisa"]},
+ {id:"q10",t:"Quantas faltas ou cancelamentos de última hora a clínica tem por semana?",o:["Nenhum","1 a 3","4 a 8","9 a 15","Mais de 15"]},
+ {id:"q11",t:"Quando um paciente cancela ou falta, o que normalmente acontece com o horário?",o:["Fica vazio","Tentamos encaixar alguém, mas raramente conseguimos","Conseguimos encaixar às vezes","Conseguimos encaixar quase sempre","Não temos esse problema"]},
+ {id:"q12",t:"Quais itens mais atrapalham a clínica hoje?",multi:true,o:["Agenda e faltas","Prontuário e registros","Estoque","Sigilo e controle de acesso","Financeiro"]},
+ {id:"q13",t:"Se tivesse que investir em uma coisa agora, qual seria?",o:["Marketing","Sistema de gestão","Equipamentos","Equipe","Estrutura física"]},
+ {id:"q14",t:"Qual a sua confiança em contratar um sistema novo?",o:["Nenhuma","Pouca","Média","Alta","Total"]},
+ {id:"q15",t:"Qual o seu maior medo ao trocar de sistema?",o:["Perder dados","A equipe não se adaptar","O paciente estranhar","O custo subir","Suporte ruim"]},
+ {id:"q16",t:"Onde você normalmente busca ou descobre um sistema de gestão para clínicas?",o:["Indicação de colega","Busca no Google","Redes sociais (Instagram, Facebook)","Anúncio","Não busco, alguém me oferece"]},
+ {id:"q17",t:"O que mais pesaria a favor na hora de escolher um sistema novo?",o:["Preço baixo","Facilidade de uso","Suporte rápido","Recomendação de outro profissional","Recurso específico que resolve meu problema"]},
+ {id:"q18",t:"Qual a sua faixa etária?",o:["Menos de 30","30 a 39","40 a 49","50 a 59","60 ou mais"]}
+];
+/* ===== Pesquisa qualitativa (na reunião) ===== */
+const QUALI=[
+ {s:"Rotina e controle atual",q:[
+  {id:"r1",t:"Como você controla o funcionamento da sua clínica hoje? Agenda de papel, planilhas, Google Agenda, algum software ou uma combinação disso?"},
+  {id:"r2",t:"Dentro desse método, o que é mais difícil de controlar?",h:"Pergunte aberto. Só se a pessoa travar, cite: agendamentos, finanças, estoque, prontuários."},
+  {id:"r3",t:"Conte a última vez que uma falha de controle causou problema na clínica, como uma consulta marcada em duplicidade, um produto vencido ou a falta de um material. O que aconteceu e o que isso custou?",h:"A pergunta mais rica do roteiro. Puxe a história: “e aí, o que vocês fizeram?”"},
+  {id:"r4",t:"Se usa mais de um meio de controle: quanto ter que usar duas ou mais ferramentas atrasa o seu trabalho? A conexão entre elas é automática ou totalmente manual?"}]},
+ {s:"Agendamento",q:[
+  {id:"r5",t:"Se o paciente tem um imprevisto, o quão difícil é remarcar a consulta? Quem faz isso e quanto tempo leva?"},
+  {id:"r6",t:"Como funciona a confirmação das consultas? Como vocês lidam com faltas e atrasos, e qual o impacto disso na clínica?"},
+  {id:"r7",t:"Se uma consulta ou um registro é alterado ou apagado, vocês conseguem saber quem fez e quando?"}]},
+ {s:"Estoque",q:[
+  {id:"r8",t:"Como vocês controlam o estoque de materiais e medicamentos, e quem é o responsável por isso?"},
+  {id:"r9",t:"Como acompanham lote e validade dos produtos? Já perderam produto por vencimento ou tiveram dificuldade de rastrear um lote, por exemplo em uma fiscalização?"}]},
+ {s:"Experiência com software e decisão de compra",q:[
+  {id:"r10",t:"Você já usou ou usa algum software de gestão para clínicas? O que funcionou bem e o que frustrou? Se nunca usou, o que impediu?"},
+  {id:"r11",t:"Qual seria a sua maior preocupação ao mudar de sistema?",h:"Pergunte aberto. Só se a pessoa travar, cite: migração das informações, treinamento, tempo de adaptação, segurança dos dados dos pacientes."},
+  {id:"r12",t:"Quando você pensa em empresas de sistema para clínica, o que vem à cabeça? Você confia nesse tipo de empresa?"}]},
+ {s:"Fechamento",q:[
+  {id:"r13",t:"Se pudesse resolver um único problema da gestão da clínica amanhã, qual seria?"},
+  {id:"r14",t:"Como você imagina a sua clínica daqui a um ou dois anos, se tudo correr bem? O que precisaria acontecer para chegar lá?"}]}
+];
+const QUALI_Q=QUALI.flatMap(x=>x.q);
+function ansCount(id){const r=RESP[id]||{};return QUANTI.filter(q=>{const v=r[q.id];return Array.isArray(v)?v.length:v}).length}
+function fitHints(id){const r=RESP[id]||{},h=[];
+  if(["Nenhum: papel, planilha ou WhatsApp"].includes(r.q3)||["Papel","WhatsApp","Planilha","Mais de um meio"].includes(r.q7))h.push("agenda sem sistema");
+  if(["4 a 8","9 a 15","Mais de 15"].includes(r.q10))h.push("muitas faltas");
+  if(["Não existe controle","De cabeça, sem registro"].includes(r.q8))h.push("estoque sem controle");
+  if(["Nenhuma","Pouca"].includes(r.q14))h.push("pouca confiança em sistema");
+  return h}
 const DAY=864e5;
 
 /* ===== Estado ===== */
 let USER=null,ME_KEY=null,ACESSO=null,me=null,isAdmin=false,TEAM=[...DEFAULT_TEAM],LIGHT=new Set();
 let phase=fbErr?"error":"auth"; // auth | login | denied | setup | app | error
 let phaseMsg=fbErr;
-let RAW={leads:null,estado:{},hist:{}},got={leads:false,estado:false,hist:false},live=false;
-let LEADS=[],BYID={},EST={},HIST={},ready=false,online=false,lastErr=null;
+let RAW={leads:null,estado:{},hist:{},respostas:{},quali:{},config:{}},got={leads:false,estado:false,hist:false},live=false;
+let LEADS=[],BYID={},EST={},HIST={},RESP={},QUALIA={},CONFIG={},ready=false,online=false,lastErr=null;
+let noteDraft={id:null,val:""},qualiOpen=null,qualiT={};
+let pmode=lsGet("alpha.modo")||"crm";
 let PQ={},subs=[],dataOn=false;
 const readonly=false;
 let myDDD=lsGet("alpha.ddd")||"51", csp=lsGet("alpha.csp")||"15";
@@ -333,9 +422,9 @@ function send(map){
 }
 function flush(){if(Object.keys(PQ).length)send(clone(PQ))}
 function derive(){
-  const o={estado:clone(RAW.estado||{}),hist:clone(RAW.hist||{})};
-  for(const p in PQ){if(p.startsWith("estado/")||p.startsWith("hist/"))setPath(o,p,PQ[p])}
-  EST=o.estado;HIST=o.hist;
+  const o={estado:clone(RAW.estado||{}),hist:clone(RAW.hist||{}),respostas:clone(RAW.respostas||{}),quali:clone(RAW.quali||{})};
+  for(const p in PQ){if(/^(estado|hist|respostas|quali)\//.test(p))setPath(o,p,PQ[p])}
+  EST=o.estado;HIST=o.hist;RESP=o.respostas;QUALIA=o.quali;CONFIG=RAW.config||{};
   if(RAW.leads){LEADS=Object.entries(RAW.leads).filter(([,l])=>l&&typeof l==="object").map(([id,l])=>({...l,id})).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0)}else LEADS=[];
   BYID={};LEADS.forEach(l=>BYID[l.id]=l);
   const names=new Set(DEFAULT_TEAM.filter(n=>Object.values(ACESSO||{}).some(a=>a&&a.nome===n)));
@@ -397,13 +486,16 @@ function gOut(){document.getElementById("acctModal").hidden=true;if(auth)auth.si
 
 function startData(){
   if(dataOn)return;dataOn=true;
-  try{const c=JSON.parse(lsGet("alpha.cache."+ME_KEY)||"null");if(c&&c.leads){RAW=c;got={leads:true,estado:true,hist:true};derive();ready=true}}catch(e){}
+  try{const c=JSON.parse(lsGet("alpha.cache."+ME_KEY)||"null");if(c&&c.leads){RAW={respostas:{},quali:{},config:{},...c};got={leads:true,estado:true,hist:true};derive();ready=true}}catch(e){}
   const done=k=>{got[k]=true;if(got.leads&&got.estado&&got.hist){ready=true;live=true}};
   let cacheT=null;const cache=()=>{clearTimeout(cacheT);cacheT=setTimeout(()=>{if(live)lsSet("alpha.cache."+ME_KEY,JSON.stringify(RAW))},800)};
   const fail=e=>{toast("Conexão com o banco falhou: "+(e.code||e.message||"erro"));lastErr=e;paintConn()};
   listen("leads",v=>{RAW.leads=v;done("leads");derive();cache();softRender()},fail);
   listen("estado",v=>{RAW.estado=v||{};done("estado");derive();cache();softRender()},fail);
   listen("hist",v=>{RAW.hist=v||{};done("hist");derive();cache();softRender()},fail);
+  listen("respostas",v=>{RAW.respostas=v||{};derive();cache();softRender()},fail);
+  listen("quali",v=>{RAW.quali=v||{};derive();cache();if(!qualiOpen)softRender()},fail);
+  listen("config",v=>{RAW.config=v||{};derive();cache();softRender()},fail);
   const cref=rdb.ref(".info/connected");const ccb=cref.on("value",s=>{online=!!s.val();if(online)flush();paintConn()});subs.push(()=>cref.off("value",ccb));
 }
 
@@ -419,10 +511,10 @@ function queueOf(name){
   return mine.sort((a,b)=>rank(a)-rank(b)||(rank(a)===1?a.o-b.o:(a.prox||0)-(b.prox||0)));
 }
 function stats(name,since){
-  let calls=0,talks=0,meets=0,pts=0,today=0;const t0=new Date();t0.setHours(0,0,0,0);
+  let calls=0,talks=0,meets=0,pesq=0,pts=0,today=0;const t0=new Date();t0.setHours(0,0,0,0);
   for(const id in HIST){for(const h of Object.values(HIST[id]||{})){ if(!h||h.by!==name)continue; if(since&&h.t<since)continue; const r=RES[h.r];if(!r)continue;
-    calls++;pts+=r.p;if(TALK.has(h.r))talks++;if(h.r==="reu")meets++;if(h.t>=t0.getTime())today++;}}
-  return {calls,talks,meets,pts,today};
+    calls++;pts+=r.p;if(TALK.has(h.r))talks++;if(h.r==="reu")meets++;if(h.r==="pesq"||h.r==="reu")pesq++;if(h.t>=t0.getTime())today++;}}
+  return {calls,talks,meets,pesq,pts,today};
 }
 function weekStart(){const d=new Date();d.setHours(0,0,0,0);const wd=(d.getDay()+6)%7;return d.getTime()-wd*DAY}
 function todayStart(){const d=new Date();d.setHours(0,0,0,0);return d.getTime()}
@@ -452,10 +544,12 @@ function render(){
   if(phase!=="app"){app.innerHTML=gate();return}
   if(!ready){app.innerHTML=`<div class="card empty"><span class="alpha">α</span><h2>Carregando a fila do squad…</h2></div>`;return}
   if(!LEADS.length&&view!=="squad"){app.innerHTML=ptop("Bem-vindo, "+first(me),"Squad Alpha")+noLeads();afterRender();return}
+  const sb=document.querySelector("#scriptCard .sbody"),sbTop=sb?sb.scrollTop:0;
   if(view==="fila") app.innerHTML=renderQueue();
   if(view==="reunioes") app.innerHTML=renderMeetings();
   if(view==="squad") app.innerHTML=renderSquad();
   if(view==="todos") app.innerHTML=renderAll();
+  const sb2=document.querySelector("#scriptCard .sbody");if(sb2&&sbTop)sb2.scrollTop=sbTop;
   afterRender();
 }
 function ptop(title,sub,tools){return `<div class="ptop"><div><h1>${esc(title)}</h1>${sub?`<div class="sub">${sub}</div>`:""}</div>${tools?`<div class="tools">${tools}</div>`:""}</div>`}
@@ -512,7 +606,7 @@ function leadCard(l){
       <div class="fact"><span>Última ação</span><span>${last?`${esc(RES[last.r]?.t||last.r)} · ${esc(last.by)} · ${fmtDT(last.t)}`:"Nenhuma ainda"}</span></div>
       ${l.status==="retornar"&&l.prox?`<div class="fact"><span>Retornar em</span><span>${fmtDT(l.prox)}</span></div>`:""}
     </div>
-    <div><label class="lbl" for="nota">Anotação (salva junto com o resultado)</label><textarea id="nota" placeholder="Quem atendeu, melhor horário, o que disse…">${esc(l.nota||"")}</textarea></div>
+    <div><label class="lbl" for="nota">Anotação (salva junto com o resultado)</label><textarea id="nota" data-id="${esc(l.id)}" placeholder="Quem atendeu, melhor horário, o que disse…">${esc(noteDraft.id===l.id?noteDraft.val:(l.nota||""))}</textarea></div>
   </section>`;
 }
 
@@ -535,12 +629,32 @@ function subformFor(k){
 
 function waText(l){
   const nm=first(l.ct);
-  return `Olá${nm?", "+nm:""}, tudo bem?\n\nMeu nome é ${me||"[seu nome]"}, sou estudante da Universidade Federal do Rio Grande do Sul (UFRGS). Estamos desenvolvendo um projeto que busca entender melhor o dia a dia de quem trabalha na área clínica: a rotina, os principais desafios e como funciona a gestão de um consultório ou clínica na prática.\n\nEncontramos ${l.emp} durante o nosso levantamento e gostaríamos muito de ouvir a sua experiência. Seria possível marcarmos uma conversa online rápida, de cerca de 20 minutos, no horário que for melhor para você?\n\nDesde já, agradeço pela atenção!`;
+  return `Olá${nm?", "+nm:""}, tudo bem?\n\nMeu nome é ${me||"[seu nome]"}, sou estudante da Universidade Federal do Rio Grande do Sul (UFRGS). Estamos fazendo uma pesquisa para entender melhor o dia a dia de quem trabalha na área clínica: a rotina, os principais desafios e como funciona a gestão de um consultório ou clínica na prática.\n\nEncontramos ${l.emp} durante o nosso levantamento e gostaríamos muito de contar com a sua resposta. São perguntas rápidas, de múltipla escolha, que levam uns 3 minutos:\n${CONFIG.forms||"[link do formulário]"}\n\nDesde já, agradeço pela atenção!`;
+}
+function waFormText(l){
+  const nm=first(l.ct);
+  return `Oi${nm?", "+nm:""}! Aqui é ${me||"[seu nome]"}, da UFRGS, conforme conversamos por telefone.\n\nSegue o formulário da pesquisa. São perguntas rápidas, de múltipla escolha, que levam uns 3 minutos:\n${CONFIG.forms||"[link do formulário]"}\n\nMuito obrigado(a) pela ajuda!`;
+}
+
+function quantiPanel(l){
+  const r=RESP[l.id]||{},n=ansCount(l.id),hints=fitHints(l.id);
+  const tog=`<div class="seg" role="group" aria-label="Onde registrar"><button data-act="pmode" data-v="crm" aria-current="${pmode==="crm"}">Registrar aqui no CRM</button><button data-act="pmode" data-v="forms" aria-current="${pmode==="forms"}">Anotar no forms</button></div>`;
+  const tip=`<p class="muted" style="margin:0;font-size:12.5px">Faça a pergunta de forma aberta e marque a alternativa que mais se aproxima. Só leia as opções se a pessoa travar.</p>`;
+  if(pmode==="forms"){
+    return `${tog}${CONFIG.forms?`<a class="btn gold" href="${esc(CONFIG.forms)}" target="_blank" rel="noopener">Abrir o forms</a>`:`<p class="muted" style="margin:0;font-size:12.5px">O link do forms ainda não foi cadastrado (aba Squad › Acesso).</p>`}${tip}
+      <ol class="qlist">${QUANTI.map((q,i)=>`<li><b>${esc(q.t)}</b>${q.multi?` <span class="muted">(pode marcar mais de uma)</span>`:""}<div class="muted">${q.o.map(esc).join(" · ")}</div></li>`).join("")}</ol>`;
+  }
+  return `${tog}<div class="qprog"><div class="bar"><i style="width:${Math.round(n/QUANTI.length*100)}%"></i></div><span class="mono">${n}/${QUANTI.length}</span></div>${tip}
+    ${QUANTI.map((q,i)=>{const v=r[q.id];const sel=o=>Array.isArray(v)?v.includes(o):v===o;
+      return `<div class="qq${(Array.isArray(v)?v.length:v)?" done":""}"><div class="qt"><span class="qn">${i+1}</span><span>${esc(q.t)}${q.multi?` <span class="muted">(pode marcar mais de uma)</span>`:""}</span></div>
+      <div class="opts">${q.o.map((o,j)=>`<button class="opt" data-act="ans" data-q="${q.id}" data-j="${j}" aria-pressed="${sel(o)}">${esc(o)}</button>`).join("")}</div></div>`}).join("")}
+    <div class="note" style="margin:0">${n===QUANTI.length?"<b>Pesquisa completa.</b> ":""}${hints.length?`<b>Bom perfil para a reunião:</b> ${esc(hints.join(", "))}. Faça o convite do passo 4 da aba Ligação.`:"Ao terminar, faça o convite do passo 4 da aba Ligação."}</div>`;
 }
 
 function scriptCard(l){
   const nm=first(l.ct)||"[nome]", eu=me, ph=SEG[l.seg]?.phrase||"clínicas";
-  const tabs=[["ligacao","Ligação"],["secretaria","Secretária"],["objecoes","Objeções"],["whatsapp","WhatsApp"]];
+  const n=ansCount(l.id);
+  const tabs=[["ligacao","Ligação"],["pesquisa","Pesquisa"+(n?` ${n}/${QUANTI.length}`:"")],["secretaria","Secretária"],["objecoes","Objeções"],["whatsapp","WhatsApp"]];
   let body="";
   const tri=l.seg==="sal"?`<div class="triage"><span class="stage">Triagem do salão · logo depois de se apresentar</span>
     <div class="say">"Antes, uma pergunta rápida: aí vocês atendem com <em>agenda marcada</em> e fazem algum <em>procedimento estético ou com biomédico(a)</em>, além de cabelo e unha?"</div>
@@ -548,42 +662,88 @@ function scriptCard(l){
   if(scriptTab==="ligacao") body=`${tri}
     <span class="stage">1 · Abertura</span>
     <div class="say">"Oi, tudo bem? Falo com <em>${esc(nm)}</em>?"</div>
-    <div class="say">"Meu nome é <em>${esc(eu)}</em>, sou estudante da UFRGS. A gente está fazendo um levantamento para entender melhor o dia a dia de quem trabalha na área clínica: a rotina, os principais desafios e como funciona a gestão de um consultório na prática."</div>
-    <span class="stage">2 · Por que ligou</span>
-    <div class="say">"Encontramos <em>${esc(l.emp)}</em> no nosso levantamento de ${esc(ph)} de ${esc(l.cid)} e eu queria muito ouvir a sua experiência. Você toparia uma conversa online rápida, de uns <em>20 minutos</em>, no horário que for melhor pra você?"</div>
-    <span class="stage">3 · Fechar o horário</span>
-    <div class="say">"Que ótimo! Qual fica melhor: começo da semana ou mais pro fim? Pode ser no almoço ou no fim do dia, como for melhor."</div>
-    <div class="say">"Perfeito. Te mando o link ${l.cel?"aqui no WhatsApp desse número":"por WhatsApp ou e-mail"}, combinado? Qual o melhor contato?"</div>
-    <span class="stage">Se não puder agora</span>
-    <div class="say">"Sem problema! Qual o melhor dia e horário pra eu te ligar de novo?" <span class="muted">→ marque <b>Pediu retorno</b> <kbd>R</kbd></span></div>`;
+    <div class="say">"Meu nome é <em>${esc(eu)}</em>, sou estudante da UFRGS. A gente está fazendo uma pesquisa com ${esc(ph)} do RS sobre a rotina e a gestão do dia a dia."</div>
+    <span class="stage">2 · Pedir 5 minutos</span>
+    <div class="say">"Você teria uns <em>5 minutinhos</em> agora pra responder umas perguntas rápidas? São de múltipla escolha, bem objetivas."</div>
+    <div class="branch"><b>Topou:</b> <button class="btn small gold" data-stab="pesquisa">Ir para a pesquisa</button></div>
+    <div class="branch"><b>Agora não dá:</b> "Sem problema! Posso te mandar por WhatsApp? Leva uns 3 minutos." <span class="muted">→ aba WhatsApp e marque <b>Mandei WhatsApp</b> <kbd>W</kbd>. Ou combine um horário e marque <b>Pediu retorno</b> <kbd>R</kbd>.</span></div>
+    <span class="stage">3 · Durante a pesquisa</span>
+    <p class="muted" style="margin:0;font-size:13px">Faça as perguntas de forma aberta, como numa conversa, e marque a alternativa que mais se aproxima. Só leia as opções se a pessoa travar.</p>
+    <span class="stage">4 · Agradecer e convidar para a reunião</span>
+    <div class="say">"Muito obrigado, ajudou demais! A gente também está conversando com algumas clínicas com mais calma, uns <em>30 minutos</em> online, pra entender a rotina em detalhe. Você toparia?"</div>
+    <div class="branch"><b>Sim:</b> combine dia e horário e marque <b>Aceitou reunião</b> <kbd>A</kbd>.</div>
+    <div class="branch"><b>Não:</b> "Tranquilo, obrigado pelo seu tempo!" <span class="muted">→ marque <b>Respondeu a pesquisa</b> <kbd>P</kbd>.</span></div>
+    <p class="muted" style="margin:0;font-size:12.5px">Vale insistir no convite com quem tem agenda no papel ou no WhatsApp, muitas faltas, nenhum controle de estoque ou pouca confiança em sistema. A aba Pesquisa avisa quando for o caso.</p>`;
+  if(scriptTab==="pesquisa") body=quantiPanel(l);
   if(scriptTab==="secretaria") body=`
     <span class="stage">Quando quem atende não é ${esc(nm)}</span>
     <div class="say">"Oi, tudo bem? Meu nome é <em>${esc(eu)}</em>, sou estudante da UFRGS. Estou tentando falar com <em>${esc(nm)}</em>, ou com quem cuida da clínica, sobre uma pesquisa que estamos fazendo com ${esc(ph)}."</div>
-    <div class="say">"É uma conversa online de uns 20 minutos, no horário que for melhor. Qual o melhor horário para eu falar com ${esc(nm)}?"</div>
+    <div class="say">"São umas perguntas rápidas, uns 5 minutos, por telefone mesmo. Qual o melhor horário pra eu falar com ${esc(nm)}?"</div>
+    <span class="stage">Se a própria secretária puder responder</span>
+    <p class="muted" style="margin:0;font-size:13px">Se ela cuida da agenda e da rotina, pode responder a pesquisa. Anote na Anotação quem respondeu e o cargo.</p>
     <span class="stage">Se pedirem para deixar recado</span>
-    <div class="say">"Claro! Posso deixar meu contato, ou prefere que eu mande uma mensagem no WhatsApp da clínica?"</div>
+    <div class="say">"Claro! Posso deixar meu contato, ou prefere que eu mande a pesquisa no WhatsApp da clínica?"</div>
     <p class="muted" style="margin:0">Anote o nome de quem atendeu e o horário sugerido. Marque <b>Pediu retorno</b> com a data.</p>`;
   if(scriptTab==="objecoes"){
     const O=[
-      ["“Não tenho tempo.”",`"Entendo, a rotina é corrida mesmo. São uns 20 minutos, online, no horário que você escolher: pode ser no almoço, no fim do dia ou até no sábado. Se ficar mais fácil, a gente faz em 15."`],
-      ["“É venda? Vocês vão me oferecer algum sistema?”",`"Não, a conversa não é de venda e a gente não vai oferecer nada. A ideia é ouvir como funciona a rotina e a gestão da clínica na prática."`],
-      ["“Pra que é isso? Quem está pedindo?”",`"Somos estudantes da UFRGS e estamos estudando como funciona a gestão de clínicas e consultórios aqui no RS. O estudo é feito para uma empresa de tecnologia em saúde que quer entender a rotina de quem atende, mas na conversa não tem venda nenhuma."`],
+      ["“Não tenho tempo.”",`"Entendo, a rotina é corrida mesmo. São só uns 5 minutos, perguntas de múltipla escolha. Se preferir, te mando por WhatsApp e você responde quando puder."`],
+      ["“É venda? Vocês vão me oferecer algum sistema?”",`"Não, não é venda e a gente não vai oferecer nada. A ideia é entender como funciona a rotina e a gestão das clínicas na prática."`],
+      ["“Pra que é isso? Quem está pedindo?”",`"Somos estudantes da UFRGS e estamos estudando como funciona a gestão de clínicas e consultórios aqui no RS. O estudo é feito para uma empresa de tecnologia em saúde que quer entender a rotina de quem atende, mas não tem venda nenhuma."`],
       ["“Como vocês conseguiram meu número?”",`"Ele está no cadastro público da empresa (CNPJ). Se preferir que a gente não ligue mais, é só me dizer que eu tiro da lista."`],
-      ["“Manda por WhatsApp / e-mail.”",`"Claro! Te mando agora com o convite. Esse número é WhatsApp?" → use a aba WhatsApp e marque Mandei WhatsApp.`],
-      ["“Não sou eu quem cuida disso.”",`"Sem problema! Quem seria a melhor pessoa pra conversar sobre a rotina da clínica, e qual o melhor horário pra falar com ela?"`],
-      ["“Já respondo muita pesquisa.”",`"Imagino! Essa não é formulário: é uma conversa, a gente quer ouvir a sua experiência mesmo, do jeito que você contar."`],
-      ["“Vai ser gravado?”",`"Só se você autorizar. Se preferir, a gente só anota os pontos principais."`],
+      ["“Manda por WhatsApp / e-mail.”",`"Claro! Te mando o formulário agora, leva uns 3 minutos. Esse número é WhatsApp?" → aba WhatsApp e marque Mandei WhatsApp.`],
+      ["“Não sou eu quem cuida disso.”",`"Sem problema! Quem seria a melhor pessoa pra responder sobre a rotina da clínica, e qual o melhor horário pra falar com ela?"`],
+      ["“Já respondo muita pesquisa.”",`"Imagino! Essa é rapidinha, uns 5 minutos, e ajuda a entender a realidade das clínicas daqui."`],
+      ["“30 minutos de reunião é muito.”",`"Pode ser em 20, no horário que você escolher: no almoço, no fim do dia ou até no sábado. É uma conversa, sem apresentação de nada."`],
+      ["“A reunião vai ser gravada?”",`"Só se você autorizar. Se preferir, a gente só anota os pontos principais."`],
       ["“Me liga outro dia.”",`"Combinado! Qual dia e horário fica melhor?" → marque Pediu retorno com a data.`]
     ];
     body=O.map(([q,a])=>`<details class="obj"><summary>${esc(q)}</summary><p class="say">${esc(a)}</p></details>`).join("");
   }
-  if(scriptTab==="whatsapp") body=`<span class="stage">Mensagem pronta${l.cel?"":" (este número é fixo; use se tiverem WhatsApp)"}</span>
+  if(scriptTab==="whatsapp"){
+    const wa=t=>l.cel?`<a class="btn small wa" href="https://wa.me/55${esc(l.ddd+l.num)}?text=${encodeURIComponent(t)}" target="_blank" rel="noopener">Abrir no WhatsApp</a>`:"";
+    body=`${l.cel?"":`<p class="muted" style="margin:0;font-size:12.5px">Este número é fixo. Use as mensagens se a clínica tiver WhatsApp.</p>`}
+    <span class="stage">Depois da ligação · enviar o forms</span>
+    <div class="wa-text" id="waForm">${esc(waFormText(l))}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="copywa" data-src="waForm">Copiar</button>${wa(waFormText(l))}</div>
+    <span class="stage">Sem ligação · primeiro contato</span>
     <div class="wa-text" id="waText">${esc(waText(l))}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="copywa">Copiar mensagem</button>
-    ${l.cel?`<a class="btn small wa" href="https://wa.me/55${esc(l.ddd+l.num)}?text=${encodeURIComponent(waText(l))}" target="_blank" rel="noopener">Abrir no WhatsApp</a>`:""}</div>
-    <p class="muted" style="margin:0;font-size:12px">Depois de enviar, marque <b>Mandei WhatsApp</b> <kbd>W</kbd>. O contato volta para a fila em 2 dias.</p>`;
-  return `<aside class="card script" aria-label="Roteiro"><div class="stabs">${tabs.map(([k,t])=>`<button data-stab="${k}" aria-current="${k===scriptTab}">${t}</button>`).join("")}</div><div class="sbody">${body}</div></aside>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="copywa" data-src="waText">Copiar</button>${wa(waText(l))}</div>
+    <p class="muted" style="margin:0;font-size:12px">Depois de enviar, marque <b>Mandei WhatsApp</b> <kbd>W</kbd>. O contato volta para a fila em 2 dias para cobrar a resposta.${CONFIG.forms?"":" O link do forms ainda não foi cadastrado: o administrador coloca na aba Squad."}</p>`;
+  }
+  return `<aside class="card script" id="scriptCard" aria-label="Roteiro"><div class="stabs">${tabs.map(([k,t])=>`<button data-stab="${k}" aria-current="${k===scriptTab}">${t}</button>`).join("")}</div><div class="sbody">${body}</div></aside>`;
 }
+function repaintScript(){
+  const old=document.getElementById("scriptCard");const l=currentLead();if(!old||!l)return;
+  const st=old.querySelector(".sbody").scrollTop;const tmp=document.createElement("div");tmp.innerHTML=scriptCard(l);
+  old.replaceWith(tmp.firstElementChild);document.querySelector("#scriptCard .sbody").scrollTop=st;
+}
+
+/* ===== Reunião: roteiro qualitativo com anotações ===== */
+function quantiSummary(id){
+  const r=RESP[id]||{};const rows=QUANTI.filter(q=>{const v=r[q.id];return Array.isArray(v)?v.length:v});
+  if(!rows.length)return `<p class="muted" style="margin:0">A pesquisa rápida não foi registrada no CRM para este contato${(BYID[id]&&EST[id]&&EST[id].status)?"":""}. Se foi feita pelo forms, confira lá antes da reunião.</p>`;
+  return `<dl class="qsum">${rows.map(q=>{const v=r[q.id];return `<dt>${esc(q.t)}</dt><dd>${esc(Array.isArray(v)?v.join(", "):v)}</dd>`}).join("")}</dl>`;
+}
+function openQuali(id){
+  qualiOpen=id;const l=L(id),a=QUALIA[id]||{},hints=fitHints(id);
+  const md=document.getElementById("qualiModal");
+  md.querySelector(".card").innerHTML=`<div class="qmhead"><div style="min-width:0"><span class="eyebrow">Roteiro da reunião</span><h2>${esc(l.emp)}</h2>
+      <div class="muted">${esc(l.ct||"")} · ${esc(l.cid)}${l.reuniao?.quando?" · "+fmtDT(l.reuniao.quando):""}</div></div><button class="btn small" data-act="qclose">Fechar</button></div>
+    <div class="note" style="margin:0"><b>Antes de começar:</b> peça autorização para gravar. Uma pessoa conduz e a outra anota. Não fale da ORO nem de nenhum produto. Peça exemplos concretos: “me conta a última vez que…”.</div>
+    <details class="obj"><summary>Respostas da pesquisa rápida${hints.length?` · ${esc(hints.join(", "))}`:""}</summary><div style="padding-bottom:12px">${quantiSummary(id)}</div></details>
+    ${QUALI.map(sec=>`<section class="qsec"><span class="stage">${esc(sec.s)}</span>${sec.q.map(q=>`<div class="qitem"><label for="qa_${q.id}"><span class="qn">${QUALI_Q.indexOf(q)+1}</span>${esc(q.t)}</label>${q.h?`<div class="legend">${esc(q.h)}</div>`:""}<textarea id="qa_${q.id}" data-qk="${q.id}" placeholder="Anotações da resposta…">${esc(a[q.id]||"")}</textarea></div>`).join("")}</section>`).join("")}
+    <section class="qsec"><span class="stage">Resumo</span><div class="qitem"><label for="qa_resumo">Principais dores e falas marcantes</label><textarea id="qa_resumo" data-qk="resumo" placeholder="3 a 5 pontos que o squad precisa saber desta conversa">${esc(a.resumo||"")}</textarea></div></section>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="legend" id="qsaved">As anotações salvam sozinhas enquanto você digita.</span><span style="flex:1"></span>${l.reuniao?.feita?`<span class="chip st-reuniao">Feita</span>`:`<button class="btn gold" data-act="done" data-id="${esc(id)}">Marcar reunião como feita</button>`}</div>`;
+  md.hidden=false;md.scrollTop=0;
+}
+function saveQuali(k,val){if(!qualiOpen)return;const id=qualiOpen;W({["quali/"+id+"/"+k]:val.trim()?val:null,["quali/"+id+"/_por"]:me,["quali/"+id+"/_em"]:Date.now()});const s=document.getElementById("qsaved");if(s)s.textContent="Salvo · "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.id==="nota"){noteDraft={id:t.dataset.id,val:t.value};return}
+  if(t.dataset&&t.dataset.qk){const k=t.dataset.qk;clearTimeout(qualiT[k]);qualiT[k]=setTimeout(()=>saveQuali(k,t.value),700)}
+});
+document.addEventListener("focusout",e=>{const t=e.target;if(t.dataset&&t.dataset.qk&&qualiT[t.dataset.qk]){clearTimeout(qualiT[t.dataset.qk]);delete qualiT[t.dataset.qk];saveQuali(t.dataset.qk,t.value)}},true);
+function closeQuali(){document.querySelectorAll("#qualiModal [data-qk]").forEach(t=>{if(qualiT[t.dataset.qk]){clearTimeout(qualiT[t.dataset.qk]);delete qualiT[t.dataset.qk];saveQuali(t.dataset.qk,t.value)}});document.getElementById("qualiModal").hidden=true;qualiOpen=null;render()}
 
 function gcalUrl(l){
   const s=l.reuniao&&l.reuniao.quando;if(!s)return "";
@@ -599,8 +759,8 @@ function renderMeetings(){
     <div style="min-width:0"><div class="chips" style="margin-bottom:4px"><span class="chip ${esc(l.seg)}">${esc(SEG[l.seg]?.n||"")}</span>${l.reuniao?.canal?`<span class="chip">${esc(l.reuniao.canal)}</span>`:""}</div>
       <b>${esc(l.emp)}</b><div class="muted">${esc(l.ct)} · ${esc(l.cid)} · <span class="mono">(${esc(l.ddd)}) ${esc(fmtNum(l))}</span></div>
       <div style="font-size:13px;margin-top:4px">Quem vai: ${esc((l.reuniao?.quem||[]).join(", ")||"a definir")} · marcada por ${esc(l.reuniao?.por||l.dono)}</div>
-      ${l.nota?`<div class="muted" style="font-size:12px;margin-top:4px">${esc(l.nota)}</div>`:""}</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${l.reuniao?.feita?`<span class="chip st-reuniao">Feita</span>`:`<button class="btn small" data-act="done" data-id="${esc(l.id)}">Marcar como feita</button>`}${!l.reuniao?.feita&&l.reuniao?.quando?`<a class="btn small" href="${esc(gcalUrl(l))}" target="_blank" rel="noopener">Pôr no Google Agenda</a>`:""}<button class="btn small" data-act="open" data-id="${esc(l.id)}">Abrir</button></div></div>`;
+      ${l.nota?`<div class="muted" style="font-size:12px;margin-top:4px">${esc(l.nota)}</div>`:""}${fitHints(l.id).length?`<div style="font-size:12px;margin-top:4px">Da pesquisa: ${esc(fitHints(l.id).join(", "))}</div>`:""}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small gold" data-act="quali" data-id="${esc(l.id)}">${Object.keys(QUALIA[l.id]||{}).some(k=>!k.startsWith("_"))?"Ver anotações":"Roteiro da reunião"}</button>${l.reuniao?.feita?`<span class="chip st-reuniao">Feita</span>`:`<button class="btn small" data-act="done" data-id="${esc(l.id)}">Marcar como feita</button>`}${!l.reuniao?.feita&&l.reuniao?.quando?`<a class="btn small" href="${esc(gcalUrl(l))}" target="_blank" rel="noopener">Pôr no Google Agenda</a>`:""}<button class="btn small" data-act="open" data-id="${esc(l.id)}">Abrir</button></div></div>`;
   return ptop("Reuniões",`${up.length} pela frente · ${done.length} feita${done.length===1?"":"s"} · visível para todo o squad`)+`<section class="card">
     ${m.length?up.map(row).join("")+(done.length?`<div class="toolbar"><span class="eyebrow">Já feitas</span></div>`+done.map(row).join(""):""):`<div class="empty"><span class="alpha">α</span><h2>Nenhuma reunião ainda</h2><p class="muted">Quando alguém marcar <b>Aceitou reunião</b> na fila, ela aparece aqui para todo o squad, com data, horário e quem vai participar.</p></div>`}</section>`;
 }
@@ -623,6 +783,10 @@ function renderAccess(){
       <div class="who"><label><input type="checkbox" id="accLeve">Fila leve</label><label><input type="checkbox" id="accAdm">Administrador</label></div>
       <div><button class="btn gold" data-act="addacc">Liberar acesso</button></div>
       <span class="legend">O nome precisa ser o mesmo que aparece nas filas, para a pessoa ver os contatos dela.</span></div>
+    <div class="subform"><b style="font-size:13px">Link do forms da pesquisa</b>
+      <input id="formsLink" type="text" inputmode="url" placeholder="https://forms.gle/…" value="${esc(CONFIG.forms||"")}">
+      <div><button class="btn" data-act="saveforms">Salvar link</button></div>
+      <span class="legend">Aparece no botão "Abrir o forms" da pesquisa e na mensagem de WhatsApp.</span></div>
     <div class="subform"><b style="font-size:13px">Contatos</b><span class="legend">${LEADS.length} contatos no banco. Suba a planilha de leads atualizada: só os contatos novos entram, já divididos entre as filas.</span><div>${importBox()}</div></div>
   </section>`;
 }
@@ -633,20 +797,20 @@ function renderSquad(){
   const rows=TEAM.map(n=>{const s=stats(n,since);const mine=A.filter(l=>l.dono===n);const open=mine.filter(l=>OPEN.has(l.status)).length;const fr=mine.filter(fresh).length;return {n,...s,total:mine.length,open,fresh:fr,done:mine.length-open}});
   const ranked=[...rows].sort((a,b)=>b.pts-a.pts||b.meets-a.meets||b.calls-a.calls);
   const maxPts=Math.max(1,...ranked.map(r=>r.pts));
-  const tot=rows.reduce((a,r)=>({calls:a.calls+r.calls,meets:a.meets+r.meets,talks:a.talks+r.talks}),{calls:0,meets:0,talks:0});
+  const tot=rows.reduce((a,r)=>({calls:a.calls+r.calls,meets:a.meets+r.meets,pesq:a.pesq+r.pesq}),{calls:0,meets:0,pesq:0});
   const openAll=A.filter(l=>OPEN.has(l.status)).length;
   return ptop("Squad",`${TEAM.length} pessoas · ${openAll} de ${LEADS.length} contatos em aberto`)+`<div class="sgrid">
     <div style="display:grid;gap:16px;min-width:0">
-    <section class="card"><div class="toolbar"><div><h2>Ranking do Alpha</h2><span class="legend">Ligação registrada 1 pt · conversa 2 pts · reunião marcada 6 pts</span></div>
+    <section class="card"><div class="toolbar"><div><h2>Ranking do Alpha</h2><span class="legend">Ligação 1 pt · conversa 2 pts · pesquisa respondida 3 pts · reunião marcada 6 pts</span></div>
       <div class="seg">${[["hoje","Hoje"],["semana","Semana"],["total","Total"]].map(([k,t])=>`<button data-range="${k}" aria-current="${k===rankRange}">${t}</button>`).join("")}</div></div>
       <ol class="rank">${ranked.map((r,i)=>`<li class="${i===0&&r.pts>0?"lead1":""}"><span class="pos">${i===0&&r.pts>0?"α":i+1}</span><span class="av">${esc(initials(r.n))}</span>
-        <div class="rname"><b>${esc(r.n)}${LIGHT.has(r.n)?`<span class="light-tag">fila leve</span>`:""}</b><small>${r.calls} registros · ${r.talks} conversas · ${r.meets} reuniões</small><div class="bar"><i style="width:${Math.round(r.pts/maxPts*100)}%"></i></div></div>
+        <div class="rname"><b>${esc(r.n)}${LIGHT.has(r.n)?`<span class="light-tag">fila leve</span>`:""}</b><small>${r.calls} registros · ${r.pesq} pesquisas · ${r.meets} reuniões</small><div class="bar"><i style="width:${Math.round(r.pts/maxPts*100)}%"></i></div></div>
         <div class="pts">${r.pts}<small>pts</small></div></li>`).join("")}</ol></section>
     ${renderActivity()}
     </div>
     <div style="display:grid;gap:16px;min-width:0">
       <section class="card panel"><span class="eyebrow">Squad no período</span>
-        <div class="kpis">${[["Registros",tot.calls],["Conversas",tot.talks],["Reuniões",tot.meets]].map(([t,v])=>`<div><strong>${v}</strong><small>${t}</small></div>`).join("")}</div>
+        <div class="kpis">${[["Registros",tot.calls],["Pesquisas",tot.pesq],["Reuniões",tot.meets]].map(([t,v])=>`<div><strong>${v}</strong><small>${t}</small></div>`).join("")}</div>
         <div class="muted" style="font-size:12px">${openAll} contatos ainda em aberto de ${LEADS.length}.</div></section>
       <section class="card panel"><span class="eyebrow">Filas</span>
         <div class="tblwrap"><table class="qtable"><thead><tr><th>Pessoa</th><th style="text-align:right">Total</th><th style="text-align:right">Sem contato</th><th style="text-align:right">Em aberto</th></tr></thead>
@@ -699,11 +863,12 @@ function record(k){
   if(k==="ret"){const v=document.getElementById("retWhen")?.value;m[p+"status"]="retornar";m[p+"prox"]=v?new Date(v).getTime():Date.now()+DAY}
   if(k==="reu"){const v=document.getElementById("reuWhen")?.value;const quem=[...document.querySelectorAll('input[name="reuWho"]:checked')].map(i=>i.value);
     m[p+"status"]="reuniao";m[p+"prox"]=null;m[p+"reuniao"]={quando:v?new Date(v).getTime():null,quem,canal:document.getElementById("reuCanal")?.value||"",feita:false,por:me}}
+  if(k==="pesq"){m[p+"status"]="respondeu";m[p+"prox"]=null}
   if(k==="rec")m[p+"status"]="recusou";
   if(k==="fora")m[p+"status"]="fora";
   if(k==="err")m[p+"status"]="errado";
   W(m);
-  pinned=null;toast(`${RES[k].t} · +${RES[k].p} pt${RES[k].p>1?"s":""}`);render();window.scrollTo({top:0,behavior:"smooth"});
+  noteDraft={id:null,val:""};pinned=null;scriptTab="ligacao";toast(`${RES[k].t} · +${RES[k].p} pt${RES[k].p>1?"s":""}`);render();window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function move(from,to,n){
@@ -804,7 +969,7 @@ document.addEventListener("click",async e=>{
   const t=e.target.closest("[data-act],[data-res],[data-stab],[data-range],#tabs button,#meBtn");if(!t)return;
   if(t.closest("#tabs")){view=t.dataset.v;location.hash=view;pinned=null;render();return}
   if(t.id==="meBtn"){const m=document.getElementById("acctModal");document.getElementById("acctTxt").innerHTML=`<b>${esc(me||"Sem acesso")}</b><br><span class="muted">${esc(USER&&USER.email)}</span>${isAdmin?` <span class="light-tag">admin</span>`:""}`;m.hidden=false;return}
-  if(t.dataset.stab){scriptTab=t.dataset.stab;render();return}
+  if(t.dataset.stab){scriptTab=t.dataset.stab;repaintScript();document.getElementById("scriptCard")?.scrollIntoView({block:"nearest"});return}
   if(t.dataset.range){rankRange=t.dataset.range;render();return}
   if(t.dataset.res&&!t.dataset.act){const k=t.dataset.res;if(k==="ret"||k==="reu"){document.getElementById("subform").innerHTML=subformFor(k);document.querySelector("#subform input")?.focus()}else record(k);return}
   const a=t.dataset.act;
@@ -819,6 +984,14 @@ document.addEventListener("click",async e=>{
     const v={nome};if(document.getElementById("accLeve").checked)v.leve=true;if(document.getElementById("accAdm").checked)v.admin=true;
     try{await rdb.ref("acesso/"+ek(mail)).set(v);toast(`${nome} liberado(a)`)}catch(err){toast("Não salvou: "+(err.code||err.message))}}
   if(a==="rmacc"){const k=t.dataset.k;if(!confirm(`Tirar o acesso de ${unk(k)}?`))return;try{await rdb.ref("acesso/"+k).remove();toast("Acesso removido")}catch(err){toast("Não removeu: "+(err.code||err.message))}}
+  if(a==="ans"){const l=currentLead();if(!l)return;const q=QUANTI.find(x=>x.id===t.dataset.q);const o=q.o[+t.dataset.j];const cur=(RESP[l.id]||{})[q.id];
+    let v;if(q.multi){const arr=Array.isArray(cur)?cur.slice():[];v=arr.includes(o)?arr.filter(x=>x!==o):[...arr,o];if(!v.length)v=null}else v=cur===o?null:o;
+    W({["respostas/"+l.id+"/"+q.id]:v,["respostas/"+l.id+"/_por"]:me,["respostas/"+l.id+"/_em"]:Date.now()});repaintScript();return}
+  if(a==="pmode"){pmode=t.dataset.v;lsSet("alpha.modo",pmode);repaintScript();return}
+  if(a==="quali"){openQuali(t.dataset.id);return}
+  if(a==="qclose"){closeQuali();return}
+  if(a==="saveforms"){const v=document.getElementById("formsLink").value.trim();if(v&&!/^https:\/\//.test(v)){toast("O link precisa começar com https://");return}
+    try{await rdb.ref("config/forms").set(v||null);toast("Link do forms salvo")}catch(err){toast("Não salvou: "+(err.code||err.message))}return}
   if(a==="impgo")impGo(t);
   if(a==="impcancel"){IMP=null;paintImp()}
   if(a==="confirm")record(t.dataset.res);
@@ -827,7 +1000,7 @@ document.addEventListener("click",async e=>{
   if(a==="unpin"){pinned=null;render()}
   if(a==="open"){e.preventDefault();pinned=t.dataset.id;view="fila";location.hash="fila";render();window.scrollTo({top:0})}
   if(a==="copy"){copy(t.dataset.v,"Número copiado")}
-  if(a==="copywa"){copy(document.getElementById("waText").textContent,"Mensagem copiada")}
+  if(a==="copywa"){copy(document.getElementById(t.dataset.src||"waText").textContent,"Mensagem copiada")}
   if(a==="pull"){pull(+t.dataset.n)}
   if(a==="transfer"){const f=document.getElementById("trFrom").value,to=document.getElementById("trTo").value,n=Math.max(1,Math.min(100,+document.getElementById("trN").value||0));
     if(f===to){toast("Escolha duas pessoas diferentes");return}const k=move(f,to,n);toast(k?`${k} contato${k>1?"s":""} de ${f} para ${to}`:`${f} não tem contatos novos para passar`);render()}
@@ -836,14 +1009,14 @@ document.addEventListener("click",async e=>{
       const donor=TEAM.filter(x=>x!==n).map(x=>[x,all().filter(l=>l.dono===x&&fresh(l)).length]).sort((a,b)=>b[1]-a[1])[0];
       if(donor&&donor[1]>10)moved+=move(donor[0],n,10)}
     toast(moved?`${moved} contatos redistribuídos`:"Todo mundo ainda tem contatos novos");render()}
-  if(a==="done"){W({["estado/"+t.dataset.id+"/reuniao/feita"]:true});render()}
+  if(a==="done"){W({["estado/"+t.dataset.id+"/reuniao/feita"]:true});if(qualiOpen){toast("Reunião marcada como feita");closeQuali()}else render()}
   if(a==="csv")exportCsv();
 });
 async function copy(txt,msg){try{await navigator.clipboard.writeText(txt);toast(msg)}catch(e){toast("Selecione e copie manualmente")}}
 document.addEventListener("keydown",e=>{
   if(phase!=="app"||view!=="fila"||e.metaKey||e.ctrlKey||e.altKey)return;
   if(/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName))return;
-  if(!document.getElementById("acctModal").hidden||!document.getElementById("impModal").hidden)return;
+  if(!document.getElementById("acctModal").hidden||!document.getElementById("impModal").hidden||!document.getElementById("qualiModal").hidden)return;
   if(e.key==="ArrowRight"){const l=currentLead();if(l&&!pinned){skipped.add(l.id);render()}return}
   const k=Object.entries(RES).find(([,r])=>r.k===e.key.toLowerCase());
   if(k){e.preventDefault();document.querySelector(`[data-res="${k[0]}"]`)?.click()}
@@ -851,8 +1024,8 @@ document.addEventListener("keydown",e=>{
 window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(["fila","reunioes","squad","todos"].includes(v)&&v!==view){view=v;render()}});
 
 function exportCsv(){
-  const head=["id","empresa","contato","segmento","cidade","telefone","email","fila","situacao","tentativas","ultima_acao","por","quando","reuniao","participantes","anotacao"];
-  const rows=all().map(l=>{const h=l.hist[l.hist.length-1];return [l.id,l.emp,l.ct,SEG[l.seg]?.n||"",l.cid,l.tel,l.em,l.dono,ST_LABEL[l.status],l.tent,h?RES[h.r]?.t:"",h?h.by:"",h?fmtDT(h.t):"",l.reuniao?.quando?fmtDT(l.reuniao.quando):"",(l.reuniao?.quem||[]).join(" / "),l.nota||""]});
+  const head=["id","empresa","contato","segmento","cidade","telefone","email","fila","situacao","tentativas","ultima_acao","por","quando","reuniao","participantes","anotacao","pesquisa_registrada_por",...QUANTI.map((q,i)=>`P${i+1}. ${q.t}`),"reuniao_anotada_por",...QUALI_Q.map((q,i)=>`Q${i+1}. ${q.t}`),"Resumo da reunião"];
+  const rows=all().map(l=>{const h=l.hist[l.hist.length-1];const r=RESP[l.id]||{},qa=QUALIA[l.id]||{};return [l.id,l.emp,l.ct,SEG[l.seg]?.n||"",l.cid,l.tel,l.em,l.dono,ST_LABEL[l.status],l.tent,h?RES[h.r]?.t:"",h?h.by:"",h?fmtDT(h.t):"",l.reuniao?.quando?fmtDT(l.reuniao.quando):"",(l.reuniao?.quem||[]).join(" / "),l.nota||"",r._por||"",...QUANTI.map(q=>Array.isArray(r[q.id])?r[q.id].join(" / "):(r[q.id]||"")),qa._por||"",...QUALI_Q.map(q=>qa[q.id]||""),qa.resumo||""]});
   const csv=[head,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const url=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));
   const a=document.createElement("a");a.href=url;a.download="alpha-contatos.csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
