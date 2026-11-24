@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="noindex,nofollow">
+<title>Alpha CRM</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c8323f'/%3E%3Ctext x='16' y='23' font-size='20' font-family='Arial' font-weight='700' text-anchor='middle' fill='white'%3E%CE%B1%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
+<style>
+/* Alpha CRM: escuro, homogêneo, um acento vermelho. Barra lateral + conteúdo. */
+:root{
+  --bg:#0a0a0c; --sb:#0e0e11; --card:#131317; --in:#0f0f12; --hov:#18181d; --bd:#222228; --bd2:#2e2e36;
+  --tx:#ededf0; --mu:#8b8b96; --mu2:#5f5f6a;
+  --pr:#c8323f; --pr2:#a92633; --pri:#ec8a93; --pr-soft:rgba(200,50,63,.12); --pr-line:rgba(200,50,63,.5);
+  --ok:#4fae84; --ok-soft:rgba(79,174,132,.12); --warn:#d1a046; --warn-soft:rgba(209,160,70,.10); --info:#7d9fe0; --info-soft:rgba(125,159,224,.12);
+  --f:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:14px; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 var(--f);display:flex;min-height:100vh;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--pri)}
+:focus-visible{outline:2px solid var(--pr);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance}
+.mono{font-variant-numeric:tabular-nums}
+.muted{color:var(--mu)}
+.eyebrow{font-size:12px;color:var(--mu);font-weight:600;letter-spacing:.02em}
+.legend{font-size:12px;color:var(--mu)}
+
+/* Barra lateral */
+.side{width:240px;flex:none;background:var(--sb);border-right:1px solid var(--bd);padding:calc(20px + env(safe-area-inset-top,0px)) 14px 18px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:6px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:.14em;margin:0 6px 22px}
+.logo i{width:34px;height:34px;border-radius:10px;background:var(--pr);display:grid;place-items:center;font-style:normal;font-size:19px;letter-spacing:0;color:#fff}
+.logo small{display:block;font-size:11px;font-weight:500;letter-spacing:.02em;color:var(--mu)}
+.grp{font-size:12px;color:var(--mu);margin:0 0 6px 8px}
+.tabs{display:flex;flex-direction:column;gap:3px}
+.tabs button{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;border:0;background:none;color:var(--tx);font-weight:500;text-align:left;width:100%}
+.tabs button svg{width:18px;height:18px;flex:none;opacity:.8}
+.tabs button{color:var(--mu)}
+.tabs button:hover{background:var(--hov);color:var(--tx)}
+.tabs button[aria-current="true"]{background:var(--hov);color:var(--tx);box-shadow:inset 2px 0 0 var(--pr)}
+.tabs button[aria-current="true"] svg{color:var(--pri);opacity:1}
+.sidefoot{margin-top:auto;display:grid;gap:10px}
+.connrow{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mu);padding:0 8px}
+.conn{width:9px;height:9px;border-radius:50%;flex:none;background:var(--warn)}
+.me{display:flex;align-items:center;gap:10px;border:1px solid var(--bd);background:var(--card);border-radius:12px;padding:8px 10px;font-weight:600;text-align:left;width:100%;min-width:0}
+.me span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:var(--pr);color:#fff;flex:none}
+
+main{flex:1;min-width:0;padding:calc(28px + env(safe-area-inset-top,0px)) 32px calc(48px + env(safe-area-inset-bottom,0px))}
+.ptop{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.ptop h1{font-size:28px;font-weight:700;letter-spacing:-.025em}
+.ptop .sub{color:var(--mu);font-size:15px;margin-top:2px}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pf{display:flex;align-items:center;gap:8px;color:var(--mu);font-size:13px;white-space:nowrap}
+.pf input[type=text]{width:56px;text-align:center;font-weight:700}
+.pf select{width:auto}
+
+@media (max-width:860px){
+  body{flex-direction:column}
+  .side{width:100%;height:auto;position:sticky;top:0;z-index:15;flex-direction:row;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 10px;border-right:0;border-bottom:1px solid var(--bd);overflow-x:auto}
+  .logo{margin:0 4px 0 0}.logo span{display:none}
+  .grp{display:none}
+  .tabs{flex-direction:row}
+  .tabs button{padding:8px 10px;white-space:nowrap;width:auto}
+  .tabs button svg{display:none}
+  .sidefoot{margin:0 0 0 auto;display:flex;align-items:center;gap:8px}
+  .connrow span:last-child{display:none}
+  .me{width:auto;padding:4px}.me span:last-child{display:none}
+  main{padding:20px 16px 40px}
+  .ptop h1{font-size:24px}
+}
+
+/* Cartões */
+.card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r)}
+.note{border-radius:12px;padding:10px 14px;font-size:13px;margin-bottom:16px;border:1px solid var(--bd)}
+.note.warn{border-color:var(--bd2);background:var(--in)}
+.empty{padding:44px 24px;text-align:center;display:grid;gap:12px;justify-items:center}
+.empty .alpha{width:52px;height:52px;border-radius:14px;background:var(--pr);display:grid;place-items:center;color:#fff;font-size:28px;font-weight:800}
+.gatecard{max-width:440px;margin:8vh auto 0}
+.err{color:var(--pri);font-weight:600;margin:0}
+
+/* Fila */
+.qgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px);gap:20px;align-items:start}
+@media (max-width:1100px){.qgrid{grid-template-columns:minmax(0,1fr)}}
+.lead{padding:24px;display:grid;gap:18px}
+.lead-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.lead-head h1{font-size:24px;font-weight:750;letter-spacing:-.015em;line-height:1.2}
+.lead-head .muted{font-size:14px;margin-top:4px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;font-weight:600;padding:3px 10px;border-radius:8px;border:1px solid var(--bd2);color:var(--mu);background:transparent}
+.chip.med,.chip.odo,.chip.est,.chip.sal{color:var(--tx);border-color:var(--bd2)}
+.chip.st-tentando,.chip.st-retornar{color:var(--tx)}
+.chip.st-reuniao{color:var(--pri);border-color:var(--pr-line);background:var(--pr-soft)}
+.chip.st-recusou,.chip.st-errado,.chip.st-sem_retorno,.chip.st-fora{color:var(--mu2)}
+.dial{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);padding:20px 0}
+.dialrow{display:flex;align-items:center;gap:16px;min-width:0}
+.callbtn{width:54px;height:54px;border-radius:50%;background:var(--pr);box-shadow:0 0 0 6px var(--pr-soft);display:grid;place-items:center;color:#fff;flex:none;text-decoration:none}
+.callbtn svg{width:24px;height:24px}
+.dial .num{font-weight:750;font-size:clamp(20px,2vw,27px);letter-spacing:-.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dial .num .csp{color:var(--mu);font-weight:600}
+@media (max-width:420px){.dial .num{white-space:normal}}
+.dial-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.qrbox{text-align:center}
+.qr{background:#fff;border-radius:12px;padding:8px;width:120px;height:120px;display:grid;place-items:center;color:#111}
+.qr svg{width:104px;height:104px}
+.qr-cap{font-size:12px;color:var(--mu);margin-top:6px}
+@media (max-width:520px){.dial{grid-template-columns:minmax(0,1fr)}.qrbox{justify-self:start}}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 28px;font-size:14px}
+@media (max-width:560px){.facts{grid-template-columns:minmax(0,1fr)}}
+.fact{display:flex;flex-direction:column;gap:1px;min-width:0}
+.fact span:first-child{color:var(--mu);font-size:12px}
+.fact span:last-child{overflow-wrap:anywhere;font-weight:600}
+textarea,input[type=text],input[type=search],input[type=datetime-local],input[type=number],select{background:var(--in);border:1px solid var(--bd);border-radius:10px;padding:9px 11px;width:100%;color:var(--tx)}
+textarea{min-height:64px;resize:vertical}
+label.lbl{font-size:12px;color:var(--mu);font-weight:600;display:block;margin-bottom:5px}
+
+.btn{border:1px solid var(--bd2);background:transparent;border-radius:10px;padding:8px 13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--tx)}
+.btn:hover{background:var(--hov);border-color:var(--bd2)}
+.btn.gold{background:var(--pr);color:#fff;border-color:var(--pr)}
+.btn.gold:hover{background:var(--pr2);border-color:var(--pr2)}
+.btn.wa{background:transparent}
+.btn.small{padding:6px 11px;font-size:12.5px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+kbd{font:inherit;font-size:10.5px;font-weight:600;color:var(--mu);border:1px solid var(--bd2);border-radius:5px;padding:1px 6px;line-height:1.4}
+
+.results{padding:18px 20px;display:grid;gap:12px}
+.rgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:700px){.rgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rbtn{border-radius:11px;padding:12px 11px;font-size:13.5px;border:1px solid var(--bd2);background:var(--in);color:var(--tx);font-weight:500;display:flex;align-items:center;gap:10px;text-align:left;line-height:1.25;transition:background .12s,border-color .12s}
+.rbtn span{flex:1}
+.rbtn .rd{width:8px;height:8px;border-radius:50%;flex:none;background:var(--mu2)}
+.rbtn.r-ok .rd{background:var(--ok)}.rbtn.r-info .rd{background:var(--info)}.rbtn.r-warn .rd{background:var(--warn)}.rbtn.r-neutral .rd{background:var(--mu)}.rbtn.r-bad .rd{background:var(--mu2)}
+.rbtn:hover{background:var(--hov);border-color:var(--mu2)}
+.rbtn.r-ok{border-color:var(--pr-line);background:var(--pr-soft)}.rbtn.r-ok .rd{background:var(--pri)}.rbtn.r-ok:hover{background:rgba(200,50,63,.2)}
+.subform{display:grid;gap:10px;background:var(--in);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.subform .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.who{display:flex;flex-wrap:wrap;gap:6px}
+.who label{background:var(--card);display:flex;align-items:center;gap:5px;border:1px solid var(--bd2);border-radius:8px;padding:4px 10px;font-size:12.5px}
+
+/* Roteiro */
+.script{display:flex;flex-direction:column;position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:hidden}
+@media (max-width:1100px){.script{position:static;max-height:none}}
+.stabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);padding:0 14px;flex-wrap:wrap}
+.stabs button{border:0;background:none;padding:15px 8px;font-weight:600;color:var(--mu);border-bottom:2px solid transparent}
+.stabs button[aria-current="true"]{color:var(--tx);border-bottom-color:var(--pr)}
+.sbody{padding:18px 20px;display:grid;gap:12px;overflow:auto}
+.say{border-left:2px solid var(--bd2);padding:2px 0 2px 12px;font-size:15px;line-height:1.6}
+.say em{font-style:normal;font-weight:650;color:var(--tx)}
+.stage{font-size:12px;color:var(--mu);font-weight:700;letter-spacing:.04em}
+.triage{border:1px solid var(--bd2);background:var(--in);border-radius:12px;padding:12px 14px;display:grid;gap:8px}
+details.obj{border:1px solid var(--bd);border-radius:10px;padding:0 12px}
+details.obj summary{cursor:pointer;padding:11px 0;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:8px}
+details.obj summary::after{content:"+";color:var(--mu)}
+details.obj[open] summary::after{content:"–"}
+details.obj p{margin:0 0 12px}
+.wa-text{white-space:pre-wrap;background:var(--in);border:1px solid var(--bd);border-radius:10px;padding:12px;font-size:13px}
+.next{padding:16px 18px;display:grid;gap:8px}
+.next ol{margin:0;padding-left:18px;display:grid;gap:4px}
+.next li{font-size:13px}
+.next li a{color:var(--tx)}
+.next li span{color:var(--mu)}
+
+/* Squad */
+.sgrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:1000px){.sgrid{grid-template-columns:minmax(0,1fr)}}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--bd)}
+.toolbar h2{font-size:17px}
+.seg{display:inline-flex;background:var(--in);border:1px solid var(--bd);border-radius:11px;padding:4px;gap:2px}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:8px;font-weight:600;color:var(--mu);font-size:12.5px}
+.seg button[aria-current="true"]{background:var(--hov);color:var(--tx);box-shadow:inset 0 0 0 1px var(--bd2)}
+.rank{list-style:none;margin:0;padding:6px 18px 14px;display:grid}
+.rank li{display:grid;grid-template-columns:24px 30px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--bd)}
+.rank li:last-child{border-bottom:0}
+.pos{font-weight:800;color:var(--mu);text-align:center}
+.rank li.lead1 .pos{color:var(--pri)}
+.rank .av{background:var(--hov);color:var(--tx);border:1px solid var(--bd2)}
+.rank li.lead1 .av{background:var(--pr);border-color:var(--pr);color:#fff}
+.rname b{display:block}
+.rname small{color:var(--mu);font-size:12px}
+.bar{height:6px;background:var(--bd);border-radius:999px;overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;background:var(--pr);border-radius:999px}
+.pts{font-weight:800;font-size:20px;text-align:right;font-variant-numeric:tabular-nums}
+.pts small{display:block;font-weight:500;font-size:11px;color:var(--mu)}
+.light-tag{font-size:10.5px;font-weight:600;color:var(--mu);border:1px solid var(--bd2);border-radius:6px;padding:0 6px;margin-left:6px;vertical-align:middle}
+.panel{padding:18px;display:grid;gap:12px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;text-align:center}
+.kpis div{background:var(--in);border:1px solid var(--bd);border-radius:12px;padding:12px 6px}
+.kpis strong{display:block;font-size:26px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpis small{color:var(--mu);font-size:12px}
+.qtable,.list{width:100%;border-collapse:collapse;font-size:13.5px}
+.qtable th,.qtable td,.list th,.list td{padding:9px 10px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+.qtable th,.list th{font-size:12px;color:var(--mu);font-weight:500}
+.qtable td.n{text-align:right;font-variant-numeric:tabular-nums}
+.list th{position:sticky;top:0;background:var(--card)}
+.list tr:hover td{background:rgba(255,255,255,.02)}
+.tblwrap{overflow-x:auto}
+.filters{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)) auto;gap:8px;padding:14px 16px;border-bottom:1px solid var(--bd)}
+@media (max-width:760px){.filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.meet{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:16px;padding:16px 18px;border-bottom:1px solid var(--bd);align-items:start}
+@media (max-width:640px){.meet{grid-template-columns:minmax(0,1fr)}}
+.when{font-weight:800;font-size:20px}
+.when small{display:block;font-weight:500;font-size:12px;color:var(--mu)}
+.feed{list-style:none;margin:0;padding:0;display:grid;gap:7px;font-size:13px}
+.feed li{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline;border-bottom:1px solid var(--bd);padding-bottom:7px}
+.feed li:last-child{border-bottom:0}
+.feed a{color:var(--tx)}
+.feed small{margin-left:auto;color:var(--mu);font-size:11px}
+
+/* Importação */
+.maprow{display:grid;grid-template-columns:140px minmax(0,1fr);gap:8px;align-items:center}
+.impstats{display:flex;gap:16px;flex-wrap:wrap;font-size:13px}
+.impstats b{font-size:18px}
+
+/* Janela e aviso */
+.modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:16px;overflow:auto}
+.modal>.card{max-width:560px;width:100%;padding:24px;display:grid;gap:16px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--hov);color:var(--tx);border:1px solid var(--bd2);padding:10px 16px;border-radius:12px;font-weight:600;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:calc(100vw - 32px)}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:no-preference){.lead{animation:rise .2s ease-out}@keyframes rise{from{transform:translateY(4px);opacity:.6}to{transform:none;opacity:1}}}
+
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="logo"><i>α</i><span>ALPHA<small>Pesquisa de clínicas · RS</small></span></div>
+  <div class="grp">Menu</div>
+  <nav class="tabs" id="tabs" hidden>
+    <button data-v="fila"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>Minha fila</button>
+    <button data-v="reunioes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Reuniões</button>
+    <button data-v="squad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Squad</button>
+    <button data-v="todos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Todos os contatos</button>
+  </nav>
+  <div class="sidefoot">
+    <div class="connrow"><span class="conn" id="conn" role="status" hidden></span><span id="connTxt" hidden></span></div>
+    <button class="me" id="meBtn" title="Sua conta" hidden><span class="av" id="meAv">?</span><span id="meName"></span></button>
+  </div>
+</aside>
+<main id="app"></main>
+<div class="modal" id="acctModal" hidden>
+  <div class="card" role="dialog" aria-labelledby="acctT">
+    <div><span class="eyebrow">Squad Alpha</span><h2 id="acctT">Sua conta</h2><p id="acctTxt" style="margin:8px 0 0"></p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="signout">Sair</button><button class="btn gold" data-act="closeacct">Fechar</button></div>
+  </div>
+</div>
+<div class="modal" id="impModal" hidden><div class="card" role="dialog" aria-label="Importar leads"></div></div>
+<div class="toast" id="toast" hidden></div>
+<script>
+/* ===== Firebase ===== */
+const firebaseConfig={
+  apiKey:"AIzaSyBPrgvD1aGGXf-l5qSiJ6jmPzcEn2TS9d0",
+  authDomain:"crm---alpha.firebaseapp.com",
+  databaseURL:"https://crm---alpha-default-rtdb.firebaseio.com",
+  projectId:"crm---alpha",
+  storageBucket:"crm---alpha.firebasestorage.app",
+  messagingSenderId:"569752563622",
+  appId:"1:569752563622:web:a5da7e0cc41590c427a967"
+};
+let auth=null,rdb=null,fbErr="";
+try{firebase.initializeApp(firebaseConfig);auth=firebase.auth();rdb=firebase.database()}catch(e){fbErr="Não foi possível carregar o Firebase. Verifique a internet e recarregue a página."}
+
+/* ===== Dados fixos ===== */
+const DEFAULT_TEAM=["Oliver","Don","Lucas","Camilla","Sophia","Maria Eduarda","William","Arthur","Antonella","Fritsch"];
+const SEG={med:{n:"Médico",phrase:"clínicas e consultórios médicos"},odo:{n:"Odonto",phrase:"consultórios odontológicos"},est:{n:"Estética",phrase:"clínicas de estética"},sal:{n:"Salão",phrase:"salões e espaços de beleza"}};
+const ST_LABEL={novo:"Novo",tentando:"Tentando",retornar:"Retornar",reuniao:"Reunião",recusou:"Recusou",fora:"Fora do perfil",sem_retorno:"Sem retorno",errado:"Número errado"};
+const OPEN=new Set(["novo","tentando","retornar"]);
+const RES={
+  na:{t:"Não atendeu",k:"n",c:"r-warn",p:1},
+  cp:{t:"Caixa postal",k:"c",c:"r-warn",p:1},
+  wa:{t:"Mandei WhatsApp",k:"w",c:"r-neutral",p:1},
+  ret:{t:"Pediu retorno",k:"r",c:"r-info",p:2},
+  reu:{t:"Aceitou reunião",k:"a",c:"r-ok",p:6},
+  rec:{t:"Recusou",k:"x",c:"r-bad",p:2},
+  fora:{t:"Fora do perfil",k:"f",c:"r-bad",p:2},
+  err:{t:"Número errado",k:"e",c:"r-bad",p:1}
+};
+const TALK=new Set(["ret","reu","rec","fora"]);
+const DAY=864e5;
+
+/* ===== Estado ===== */
+let USER=null,ME_KEY=null,ACESSO=null,me=null,isAdmin=false,TEAM=[...DEFAULT_TEAM],LIGHT=new Set();
+let phase=fbErr?"error":"auth"; // auth | login | denied | setup | app | error
+let phaseMsg=fbErr;
+let RAW={leads:null,estado:{},hist:{}},got={leads:false,estado:false,hist:false},live=false;
+let LEADS=[],BYID={},EST={},HIST={},ready=false,online=false,lastErr=null;
+let PQ={},subs=[],dataOn=false;
+const readonly=false;
+let myDDD=lsGet("alpha.ddd")||"51", csp=lsGet("alpha.csp")||"15";
+let view=(location.hash||"#fila").slice(1); if(!["fila","reunioes","squad","todos"].includes(view)) view="fila";
+let pinned=null, skipped=new Set(), scriptTab="ligacao", rankRange="semana";
+let filt={q:"",seg:"",st:"",dono:""};
+
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function initials(n){return String(n||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+function first(n){return (n||"").split(" ")[0]||""}
+function clone(o){return o==null?o:JSON.parse(JSON.stringify(o))}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+function fmtNum(l){const n=String(l.num||"");return n.length===9?n.slice(0,5)+"-"+n.slice(5):n.slice(0,4)+"-"+n.slice(4)}
+function dialStr(l){return l.ddd===myDDD?l.num:"0"+csp+l.ddd+l.num}
+function fmtDT(ts){if(!ts)return"";const d=new Date(ts);return d.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"})+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+function toLocalInput(ts){const d=new Date(ts-new Date().getTimezoneOffset()*6e4);return d.toISOString().slice(0,16)}
+const ek=e=>String(e||"").trim().toLowerCase().replace(/\./g,",");
+const unk=k=>String(k).replace(/,/g,".");
+
+/* ===== Fila de envio: tudo é salvo neste aparelho primeiro e só sai da fila quando o servidor confirma ===== */
+const pqKey=()=>"alpha.pq."+ME_KEY;
+function loadPQ(){try{PQ=JSON.parse(lsGet(pqKey())||"{}")||{}}catch(e){PQ={}}}
+function savePQ(){if(!ME_KEY)return;if(Object.keys(PQ).length)lsSet(pqKey(),JSON.stringify(PQ));else lsDel(pqKey())}
+function setPath(o,path,val){const p=path.split("/");let t=o;for(let i=0;i<p.length-1;i++){if(t[p[i]]==null||typeof t[p[i]]!=="object")t[p[i]]={};t=t[p[i]]}const k=p[p.length-1];if(val===null)delete t[k];else t[k]=clone(val)}
+function W(map){Object.assign(PQ,clone(map));savePQ();derive();send(map);paintConn()}
+function send(map){
+  if(!rdb)return;
+  rdb.ref().update(map).then(()=>{
+    for(const k in map){if(Object.prototype.hasOwnProperty.call(PQ,k)&&JSON.stringify(PQ[k])===JSON.stringify(map[k]))delete PQ[k]}
+    savePQ();lastErr=null;paintConn();
+  }).catch(e=>{
+    lastErr=e;
+    if(e&&/permission/i.test(e.code||e.message||"")){for(const k in map)delete PQ[k];savePQ();derive();softRender();toast("Não salvou: seu acesso não permite essa alteração")}
+    paintConn();
+  });
+}
+function flush(){if(Object.keys(PQ).length)send(clone(PQ))}
+function derive(){
+  const o={estado:clone(RAW.estado||{}),hist:clone(RAW.hist||{})};
+  for(const p in PQ){if(p.startsWith("estado/")||p.startsWith("hist/"))setPath(o,p,PQ[p])}
+  EST=o.estado;HIST=o.hist;
+  if(RAW.leads){LEADS=Object.entries(RAW.leads).filter(([,l])=>l&&typeof l==="object").map(([id,l])=>({...l,id})).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0)}else LEADS=[];
+  BYID={};LEADS.forEach(l=>BYID[l.id]=l);
+  const names=new Set(DEFAULT_TEAM.filter(n=>Object.values(ACESSO||{}).some(a=>a&&a.nome===n)));
+  Object.values(ACESSO||{}).forEach(a=>{if(a&&a.nome)names.add(a.nome)});
+  LEADS.forEach(l=>{const d=(EST[l.id]&&EST[l.id].dono)||l.dono;if(d)names.add(d)});
+  const ord=n=>{const i=DEFAULT_TEAM.indexOf(n);return i<0?99:i};
+  TEAM=[...names].sort((a,b)=>ord(a)-ord(b)||a.localeCompare(b,"pt-BR"));
+  LIGHT=new Set(Object.values(ACESSO||{}).filter(a=>a&&a.leve).map(a=>a.nome));
+}
+
+/* ===== Conexão ===== */
+function paintConn(){
+  const dot=document.getElementById("conn"),tx=document.getElementById("connTxt");if(!dot)return;
+  const n=Object.keys(PQ).length;let col="var(--warn)",t="Conectando…";
+  if(phase!=="app"){dot.hidden=true;tx.hidden=true;return}
+  dot.hidden=false;
+  if(lastErr&&!/permission/i.test(lastErr.code||"")){col="var(--bad)";t="Erro ao salvar: "+(lastErr.message||lastErr.code||"falha")+". As alterações continuam guardadas neste aparelho."}
+  else if(!online){col="var(--warn)";t="Sem conexão com o banco. O que você registrar fica salvo neste aparelho e é enviado quando a internet voltar."}
+  else if(n){col="var(--warn)";t="Enviando "+n+" alteração(ões)…"}
+  else {col="var(--ok)";t="Sincronizado: tudo o que o squad registra aparece aqui na hora."}
+  dot.style.background=col;dot.title=t;dot.setAttribute("aria-label",t);
+  const short=!online?(n?n+" pendente"+(n>1?"s":"")+" · offline":"Offline · salvando aqui"):n?"Enviando "+n+"…":"Sincronizado";
+  tx.textContent=short;tx.hidden=false;tx.title=t;
+}
+
+/* ===== Login e acesso ===== */
+function unsubAll(){subs.forEach(f=>{try{f()}catch(e){}});subs=[];dataOn=false;live=false}
+function listen(path,fn,onErr){const ref=rdb.ref(path);const cb=ref.on("value",s=>fn(s.val()),e=>onErr&&onErr(e));subs.push(()=>ref.off("value",cb))}
+if(auth){
+  auth.getRedirectResult().catch(e=>{phaseMsg=authMsg(e);render()});
+  auth.onAuthStateChanged(u=>{
+    USER=u||null;unsubAll();ACESSO=null;me=null;isAdmin=false;ready=false;
+    if(!u){phase="login";render();return}
+    ME_KEY=ek(u.email);loadPQ();phase="auth";render();
+    listen("acesso",v=>{
+      ACESSO=v;
+      if(!v){phase="setup";render();return}
+      const mine=v[ME_KEY];
+      if(!mine){phase="denied";render();return}
+      me=mine.nome;isAdmin=!!mine.admin;
+      if(phase!=="app"){phase="app";startData()}
+      derive();softRender();
+    },e=>{phase=/permission/i.test(e.code||e.message||"")?"denied":"error";phaseMsg=e.message||"";render()});
+  });
+}
+function authMsg(e){const c=(e&&e.code)||"";
+  if(c==="auth/operation-not-supported-in-this-environment"||c==="auth/web-storage-unsupported")return "O login não funciona com o arquivo aberto direto do computador. Abra o CRM pelo endereço do GitHub Pages.";
+  if(c==="auth/unauthorized-domain")return "Este endereço ainda não está autorizado no Firebase. O Oliver precisa adicioná-lo em Authentication › Configurações › Domínios autorizados.";
+  if(c==="auth/operation-not-allowed")return "O login com Google não está ativado no Firebase (Authentication › Método de login › Google).";
+  if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request")return "Login cancelado.";
+  return "Não foi possível entrar: "+((e&&e.message)||c||"erro desconhecido")}
+async function gLogin(){
+  if(!auth)return;phaseMsg="";
+  const pr=new firebase.auth.GoogleAuthProvider();pr.setCustomParameters({prompt:"select_account"});
+  try{await auth.signInWithPopup(pr)}
+  catch(e){if(e&&e.code==="auth/popup-blocked"){try{await auth.signInWithRedirect(pr);return}catch(e2){e=e2}}phaseMsg=authMsg(e);render()}
+}
+function gOut(){document.getElementById("acctModal").hidden=true;if(auth)auth.signOut()}
+
+function startData(){
+  if(dataOn)return;dataOn=true;
+  try{const c=JSON.parse(lsGet("alpha.cache."+ME_KEY)||"null");if(c&&c.leads){RAW=c;got={leads:true,estado:true,hist:true};derive();ready=true}}catch(e){}
+  const done=k=>{got[k]=true;if(got.leads&&got.estado&&got.hist){ready=true;live=true}};
+  let cacheT=null;const cache=()=>{clearTimeout(cacheT);cacheT=setTimeout(()=>{if(live)lsSet("alpha.cache."+ME_KEY,JSON.stringify(RAW))},800)};
+  const fail=e=>{toast("Conexão com o banco falhou: "+(e.code||e.message||"erro"));lastErr=e;paintConn()};
+  listen("leads",v=>{RAW.leads=v;done("leads");derive();cache();softRender()},fail);
+  listen("estado",v=>{RAW.estado=v||{};done("estado");derive();cache();softRender()},fail);
+  listen("hist",v=>{RAW.hist=v||{};done("hist");derive();cache();softRender()},fail);
+  const cref=rdb.ref(".info/connected");const ccb=cref.on("value",s=>{online=!!s.val();if(online)flush();paintConn()});subs.push(()=>cref.off("value",ccb));
+}
+
+/* ===== Lead efetivo = dado fixo + estado compartilhado ===== */
+function L(id){const b=BYID[id]||{},s=EST[id]||{};const h=HIST[id]?Object.values(HIST[id]).filter(x=>x&&x.t).sort((a,c)=>a.t-c.t):[];
+  return {...b,...s,id,dono:s.dono||b.dono,o:s.o??b.o??0,status:s.status||"novo",tent:s.tent||0,hist:h}}
+function all(){return LEADS.map(b=>L(b.id))}
+function isDue(l){return !l.prox||l.prox<=Date.now()}
+function fresh(l){return l.status==="novo"&&!l.hist.length}
+function queueOf(name){
+  const mine=all().filter(l=>l.dono===name&&OPEN.has(l.status));
+  const rank=l=>l.status==="retornar"&&isDue(l)?0:l.status==="novo"?1:l.status==="tentando"&&isDue(l)?2:3;
+  return mine.sort((a,b)=>rank(a)-rank(b)||(rank(a)===1?a.o-b.o:(a.prox||0)-(b.prox||0)));
+}
+function stats(name,since){
+  let calls=0,talks=0,meets=0,pts=0,today=0;const t0=new Date();t0.setHours(0,0,0,0);
+  for(const id in HIST){for(const h of Object.values(HIST[id]||{})){ if(!h||h.by!==name)continue; if(since&&h.t<since)continue; const r=RES[h.r];if(!r)continue;
+    calls++;pts+=r.p;if(TALK.has(h.r))talks++;if(h.r==="reu")meets++;if(h.t>=t0.getTime())today++;}}
+  return {calls,talks,meets,pts,today};
+}
+function weekStart(){const d=new Date();d.setHours(0,0,0,0);const wd=(d.getDay()+6)%7;return d.getTime()-wd*DAY}
+function todayStart(){const d=new Date();d.setHours(0,0,0,0);return d.getTime()}
+
+/* ===== Telas antes do app ===== */
+function gate(){
+  const logo=`<span class="alpha">α</span>`;
+  if(phase==="error")return `<div class="card empty">${logo}<h2>Não deu para conectar</h2><p class="muted">${esc(phaseMsg||"Erro desconhecido.")}</p><button class="btn gold" data-act="reload">Recarregar</button></div>`;
+  if(phase==="auth")return `<div class="card empty">${logo}<h2>Conectando ao banco do squad…</h2></div>`;
+  if(phase==="login")return `<div class="card empty gatecard">${logo}<h2>Entre com a sua conta Google</h2><p class="muted">Use o e-mail que você passou para o Oliver. Cada registro fica com o seu nome, e todo o squad acompanha em tempo real.</p>${phaseMsg?`<p class="err">${esc(phaseMsg)}</p>`:""}<button class="btn gold" data-act="login">Entrar com Google</button></div>`;
+  if(phase==="denied")return `<div class="card empty gatecard">${logo}<h2>Este e-mail ainda não tem acesso</h2><p class="muted">Você entrou como <b>${esc(USER&&USER.email)}</b>. Peça ao Oliver para incluir esse e-mail na aba Squad › Acesso, depois toque em “Tentar de novo”.</p><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn gold" data-act="reload">Tentar de novo</button><button class="btn" data-act="logout">Entrar com outro e-mail</button></div></div>`;
+  if(phase==="setup")return `<div class="card empty gatecard">${logo}<h2>Primeira configuração</h2><p class="muted">Ninguém configurou o acesso ainda. Quem fizer isto vira administrador: consegue liberar os e-mails do squad e importar os contatos.</p>
+    <div style="display:grid;gap:8px;width:min(100%,320px);text-align:left"><label class="lbl" for="setupName">Qual é o seu nome no squad?</label><select id="setupName">${DEFAULT_TEAM.map(n=>`<option>${esc(n)}</option>`).join("")}</select></div>
+    <p class="muted" style="font-size:12px;margin:0">Conta: ${esc(USER&&USER.email)}</p><button class="btn gold" data-act="setup">Sou o administrador</button></div>`;
+  return "";
+}
+
+/* ---------- render ---------- */
+function render(){
+  document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.v===view));
+  document.getElementById("tabs").hidden=phase!=="app";
+  const mb=document.getElementById("meBtn");mb.hidden=!USER;
+  document.getElementById("meName").textContent=me||(USER?USER.email:"");
+  document.getElementById("meAv").textContent=me?initials(me):USER?initials(USER.email):"?";
+  paintConn();
+  const app=document.getElementById("app");
+  if(phase!=="app"){app.innerHTML=gate();return}
+  if(!ready){app.innerHTML=`<div class="card empty"><span class="alpha">α</span><h2>Carregando a fila do squad…</h2></div>`;return}
+  if(!LEADS.length&&view!=="squad"){app.innerHTML=ptop("Bem-vindo, "+first(me),"Squad Alpha")+noLeads();afterRender();return}
+  if(view==="fila") app.innerHTML=renderQueue();
+  if(view==="reunioes") app.innerHTML=renderMeetings();
+  if(view==="squad") app.innerHTML=renderSquad();
+  if(view==="todos") app.innerHTML=renderAll();
+  afterRender();
+}
+function ptop(title,sub,tools){return `<div class="ptop"><div><h1>${esc(title)}</h1>${sub?`<div class="sub">${sub}</div>`:""}</div>${tools?`<div class="tools">${tools}</div>`:""}</div>`}
+function noLeads(){
+  return `<div class="card empty"><span class="alpha">α</span><h2>Ainda não há contatos no banco</h2>${isAdmin?`<p class="muted">Importe o arquivo <b>alpha-leads.json</b> para criar a fila de todo o squad.</p>${importBox()}`:`<p class="muted">Assim que o Oliver importar a lista de contatos, a sua fila aparece aqui.</p>`}</div>`;
+}
+function importBox(){return `<div><label class="btn gold" style="cursor:pointer">Importar planilha de leads<input type="file" id="impFile" accept=".xlsx,.xls,.csv,.json" hidden></label><div class="legend" style="margin-top:6px">Excel (.xlsx), CSV ou o arquivo alpha-leads.json. Contatos que já estão no CRM são ignorados.</div></div>`}
+
+function renderQueue(){
+  const q=queueOf(me).filter(l=>!skipped.has(l.id));
+  const due=q.filter(l=>l.status==="novo"||isDue(l));
+  const cur=pinned?L(pinned):due[0];
+  const s=stats(me,todayStart());
+  const waiting=queueOf(me).filter(l=>l.status!=="novo"&&!isDue(l)).length;
+  const head=ptop("Minha fila",`${esc(me)} · ${due.length} para ligar agora${waiting?` · ${waiting} aguardando retorno`:""} · hoje ${s.calls} registro${s.calls===1?"":"s"}, ${s.pts} pts`,
+    `<label class="pf" for="dddIn">Meu DDD <input id="dddIn" type="text" inputmode="numeric" maxlength="2" value="${esc(myDDD)}"></label>
+    <label class="pf" for="cspIn">Outro DDD via <select id="cspIn">${[["15","Vivo 015"],["21","Claro 021"],["41","TIM 041"],["31","Oi 031"]].map(([v,t])=>`<option value="${v}" ${v===csp?"selected":""}>${t}</option>`).join("")}</select></label>`);
+  if(!cur){
+    return head+`<div class="card empty"><span class="alpha">α</span><h2>Sua fila de agora acabou</h2>
+      <p class="muted">${waiting?`${waiting} contato${waiting>1?"s":""} volta${waiting>1?"m":""} para a fila quando chegar a data do retorno. `:""}Quer adiantar? Puxe contatos de quem ainda tem muitos na fila.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${[5,10,20].map(n=>`<button class="btn ${n===10?"gold":""}" data-act="pull" data-n="${n}">Puxar +${n}</button>`).join("")}</div></div>`;
+  }
+  const rest=due.filter(l=>l.id!==cur.id).slice(0,6);
+  return head+`<div class="qgrid">
+    <div style="display:grid;gap:16px;min-width:0">
+      ${leadCard(cur)}
+      ${resultsCard(cur)}
+      <div class="card next"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span class="eyebrow">Próximos da fila</span>
+        <span style="display:flex;gap:6px">${[5,10].map(n=>`<button class="btn small" data-act="pull" data-n="${n}">Puxar +${n}</button>`).join("")}</span></div>
+        ${rest.length?`<ol>${rest.map(l=>`<li><a href="#fila" data-act="open" data-id="${esc(l.id)}" style="color:inherit">${esc(l.emp)}</a> <span>· ${esc(SEG[l.seg]?.n||"")} · ${esc(l.cid)}${l.status==="retornar"?" · retorno":l.status==="tentando"?` · ${l.tent}ª tentativa`:""}</span></li>`).join("")}</ol>`:`<p class="muted" style="margin:0">Este é o último da fila de agora.</p>`}
+      </div>
+    </div>
+    ${scriptCard(cur)}
+  </div>`;
+}
+
+function leadCard(l){
+  const dial=dialStr(l), other=l.ddd!==myDDD;
+  const last=l.hist.length?l.hist[l.hist.length-1]:null;
+  return `<section class="card lead" aria-label="Contato atual">
+    <div class="lead-head"><div style="min-width:0"><div class="chips" style="margin-bottom:8px"><span class="chip ${esc(l.seg)}">${esc(SEG[l.seg]?.n||"")}</span><span class="chip st-${l.status}">${ST_LABEL[l.status]}${l.status==="tentando"?` · ${l.tent}/3`:""}</span>${l.cel?`<span class="chip">Celular</span>`:`<span class="chip">Fixo</span>`}</div>
+      <h1>${esc(l.emp)}</h1><div class="muted">${esc(l.ct||"Contato sem nome")}${l.dono!==me?` · fila de ${esc(l.dono)}`:""}</div></div>
+      ${pinned?`<button class="btn small" data-act="unpin">Voltar para a fila</button>`:`<button class="btn small" data-act="skip" title="Pular por agora">Pular <kbd>→</kbd></button>`}</div>
+    <div class="dial"><div style="min-width:0"><div class="dialrow"><a class="callbtn" href="tel:${esc(dial)}" aria-label="Ligar deste aparelho"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg></a>
+      <div style="min-width:0"><span class="eyebrow">Ligar para</span><div class="num">${other?`<span class="csp">0${esc(csp)} </span>`:""}(${esc(l.ddd)}) ${esc(fmtNum(l))}</div></div></div>
+      ${other?`<div class="muted" style="font-size:12px">DDD diferente do seu: o QR já disca com o código da operadora.</div>`:""}
+      <div class="dial-actions"><button class="btn small" data-act="copy" data-v="${esc(dial)}">Copiar número</button>
+      ${l.cel?`<a class="btn small wa" href="https://wa.me/55${esc(l.ddd+l.num)}?text=${encodeURIComponent(waText(l))}" target="_blank" rel="noopener">Abrir WhatsApp</a>`:""}</div></div>
+      <div class="qrbox"><div class="qr" id="qr" data-tel="${esc(dial)}"></div><div class="qr-cap">Aponte a câmera do celular</div></div></div>
+    <div class="facts">
+      <div class="fact"><span>Cidade</span><span>${esc(l.cid)} / RS</span></div>
+      <div class="fact"><span>Aberta em</span><span>${esc(l.ab||"—")}</span></div>
+      <div class="fact"><span>E-mail</span><span>${esc(l.em||"—")}</span></div>
+      <div class="fact"><span>Última ação</span><span>${last?`${esc(RES[last.r]?.t||last.r)} · ${esc(last.by)} · ${fmtDT(last.t)}`:"Nenhuma ainda"}</span></div>
+      ${l.status==="retornar"&&l.prox?`<div class="fact"><span>Retornar em</span><span>${fmtDT(l.prox)}</span></div>`:""}
+    </div>
+    <div><label class="lbl" for="nota">Anotação (salva junto com o resultado)</label><textarea id="nota" placeholder="Quem atendeu, melhor horário, o que disse…">${esc(l.nota||"")}</textarea></div>
+  </section>`;
+}
+
+function resultsCard(l){
+  return `<section class="card results" aria-label="Resultado da ligação"><span class="eyebrow">Como foi? (atalhos no teclado)</span>
+    <div class="rgrid">${Object.entries(RES).map(([k,r])=>`<button class="rbtn ${r.c}" data-res="${k}"><i class="rd" aria-hidden="true"></i><span>${r.t}</span><kbd>${r.k.toUpperCase()}</kbd></button>`).join("")}</div>
+    <div id="subform"></div></section>`;
+}
+
+function subformFor(k){
+  const soon=toLocalInput(Date.now()+DAY);
+  if(k==="ret") return `<div class="subform"><div class="row"><div><label class="lbl" for="retWhen">Ligar de novo em</label><input id="retWhen" type="datetime-local" value="${soon}"></div></div>
+    <div style="display:flex;gap:8px"><button class="btn gold" data-act="confirm" data-res="ret">Salvar retorno</button><button class="btn" data-act="cancel">Cancelar</button></div></div>`;
+  if(k==="reu") return `<div class="subform"><div class="row"><div><label class="lbl" for="reuWhen">Reunião em</label><input id="reuWhen" type="datetime-local" value="${soon}"></div>
+    <div><label class="lbl" for="reuCanal">Como vai ser</label><select id="reuCanal"><option>Google Meet</option><option>WhatsApp (vídeo)</option><option>Zoom</option><option>Presencial</option></select></div></div>
+    <div><span class="lbl">Quem vai participar</span><div class="who">${TEAM.map(n=>`<label><input type="checkbox" name="reuWho" value="${esc(n)}" ${n===me?"checked":""}>${esc(n)}</label>`).join("")}</div></div>
+    <div style="display:flex;gap:8px"><button class="btn gold" data-act="confirm" data-res="reu">Salvar reunião</button><button class="btn" data-act="cancel">Cancelar</button></div></div>`;
+  return "";
+}
+
+function waText(l){
+  const nm=first(l.ct);
+  return `Olá${nm?", "+nm:""}, tudo bem?\n\nMeu nome é ${me||"[seu nome]"}, sou estudante da Universidade Federal do Rio Grande do Sul (UFRGS). Estamos desenvolvendo um projeto que busca entender melhor o dia a dia de quem trabalha na área clínica: a rotina, os principais desafios e como funciona a gestão de um consultório ou clínica na prática.\n\nEncontramos ${l.emp} durante o nosso levantamento e gostaríamos muito de ouvir a sua experiência. Seria possível marcarmos uma conversa online rápida, de cerca de 20 minutos, no horário que for melhor para você?\n\nDesde já, agradeço pela atenção!`;
+}
+
+function scriptCard(l){
+  const nm=first(l.ct)||"[nome]", eu=me, ph=SEG[l.seg]?.phrase||"clínicas";
+  const tabs=[["ligacao","Ligação"],["secretaria","Secretária"],["objecoes","Objeções"],["whatsapp","WhatsApp"]];
+  let body="";
+  const tri=l.seg==="sal"?`<div class="triage"><span class="stage">Triagem do salão · logo depois de se apresentar</span>
+    <div class="say">"Antes, uma pergunta rápida: aí vocês atendem com <em>agenda marcada</em> e fazem algum <em>procedimento estético ou com biomédico(a)</em>, além de cabelo e unha?"</div>
+    <div style="font-size:13px"><b>Sim:</b> segue o roteiro. <b>Só cabelo e unha:</b> agradece e marca <b>Fora do perfil</b> <kbd>F</kbd>.</div></div>`:"";
+  if(scriptTab==="ligacao") body=`${tri}
+    <span class="stage">1 · Abertura</span>
+    <div class="say">"Oi, tudo bem? Falo com <em>${esc(nm)}</em>?"</div>
+    <div class="say">"Meu nome é <em>${esc(eu)}</em>, sou estudante da UFRGS. A gente está fazendo um levantamento para entender melhor o dia a dia de quem trabalha na área clínica: a rotina, os principais desafios e como funciona a gestão de um consultório na prática."</div>
+    <span class="stage">2 · Por que ligou</span>
+    <div class="say">"Encontramos <em>${esc(l.emp)}</em> no nosso levantamento de ${esc(ph)} de ${esc(l.cid)} e eu queria muito ouvir a sua experiência. Você toparia uma conversa online rápida, de uns <em>20 minutos</em>, no horário que for melhor pra você?"</div>
+    <span class="stage">3 · Fechar o horário</span>
+    <div class="say">"Que ótimo! Qual fica melhor: começo da semana ou mais pro fim? Pode ser no almoço ou no fim do dia, como for melhor."</div>
+    <div class="say">"Perfeito. Te mando o link ${l.cel?"aqui no WhatsApp desse número":"por WhatsApp ou e-mail"}, combinado? Qual o melhor contato?"</div>
+    <span class="stage">Se não puder agora</span>
+    <div class="say">"Sem problema! Qual o melhor dia e horário pra eu te ligar de novo?" <span class="muted">→ marque <b>Pediu retorno</b> <kbd>R</kbd></span></div>`;
+  if(scriptTab==="secretaria") body=`
+    <span class="stage">Quando quem atende não é ${esc(nm)}</span>
+    <div class="say">"Oi, tudo bem? Meu nome é <em>${esc(eu)}</em>, sou estudante da UFRGS. Estou tentando falar com <em>${esc(nm)}</em>, ou com quem cuida da clínica, sobre uma pesquisa que estamos fazendo com ${esc(ph)}."</div>
+    <div class="say">"É uma conversa online de uns 20 minutos, no horário que for melhor. Qual o melhor horário para eu falar com ${esc(nm)}?"</div>
+    <span class="stage">Se pedirem para deixar recado</span>
+    <div class="say">"Claro! Posso deixar meu contato, ou prefere que eu mande uma mensagem no WhatsApp da clínica?"</div>
+    <p class="muted" style="margin:0">Anote o nome de quem atendeu e o horário sugerido. Marque <b>Pediu retorno</b> com a data.</p>`;
+  if(scriptTab==="objecoes"){
+    const O=[
+      ["“Não tenho tempo.”",`"Entendo, a rotina é corrida mesmo. São uns 20 minutos, online, no horário que você escolher: pode ser no almoço, no fim do dia ou até no sábado. Se ficar mais fácil, a gente faz em 15."`],
+      ["“É venda? Vocês vão me oferecer algum sistema?”",`"Não, a conversa não é de venda e a gente não vai oferecer nada. A ideia é ouvir como funciona a rotina e a gestão da clínica na prática."`],
+      ["“Pra que é isso? Quem está pedindo?”",`"Somos estudantes da UFRGS e estamos estudando como funciona a gestão de clínicas e consultórios aqui no RS. O estudo é feito para uma empresa de tecnologia em saúde que quer entender a rotina de quem atende, mas na conversa não tem venda nenhuma."`],
+      ["“Como vocês conseguiram meu número?”",`"Ele está no cadastro público da empresa (CNPJ). Se preferir que a gente não ligue mais, é só me dizer que eu tiro da lista."`],
+      ["“Manda por WhatsApp / e-mail.”",`"Claro! Te mando agora com o convite. Esse número é WhatsApp?" → use a aba WhatsApp e marque Mandei WhatsApp.`],
+      ["“Não sou eu quem cuida disso.”",`"Sem problema! Quem seria a melhor pessoa pra conversar sobre a rotina da clínica, e qual o melhor horário pra falar com ela?"`],
+      ["“Já respondo muita pesquisa.”",`"Imagino! Essa não é formulário: é uma conversa, a gente quer ouvir a sua experiência mesmo, do jeito que você contar."`],
+      ["“Vai ser gravado?”",`"Só se você autorizar. Se preferir, a gente só anota os pontos principais."`],
+      ["“Me liga outro dia.”",`"Combinado! Qual dia e horário fica melhor?" → marque Pediu retorno com a data.`]
+    ];
+    body=O.map(([q,a])=>`<details class="obj"><summary>${esc(q)}</summary><p class="say">${esc(a)}</p></details>`).join("");
+  }
+  if(scriptTab==="whatsapp") body=`<span class="stage">Mensagem pronta${l.cel?"":" (este número é fixo; use se tiverem WhatsApp)"}</span>
+    <div class="wa-text" id="waText">${esc(waText(l))}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" data-act="copywa">Copiar mensagem</button>
+    ${l.cel?`<a class="btn small wa" href="https://wa.me/55${esc(l.ddd+l.num)}?text=${encodeURIComponent(waText(l))}" target="_blank" rel="noopener">Abrir no WhatsApp</a>`:""}</div>
+    <p class="muted" style="margin:0;font-size:12px">Depois de enviar, marque <b>Mandei WhatsApp</b> <kbd>W</kbd>. O contato volta para a fila em 2 dias.</p>`;
+  return `<aside class="card script" aria-label="Roteiro"><div class="stabs">${tabs.map(([k,t])=>`<button data-stab="${k}" aria-current="${k===scriptTab}">${t}</button>`).join("")}</div><div class="sbody">${body}</div></aside>`;
+}
+
+function gcalUrl(l){
+  const s=l.reuniao&&l.reuniao.quando;if(!s)return "";
+  const f=d=>new Date(d).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const det=`Contato: ${l.ct||"—"} · (${l.ddd}) ${fmtNum(l)}\nCidade: ${l.cid}\nCanal: ${l.reuniao.canal||"a definir"}\nQuem vai: ${(l.reuniao.quem||[]).join(", ")||"a definir"}${l.nota?"\nAnotação: "+l.nota:""}`;
+  return "https://calendar.google.com/calendar/render?"+new URLSearchParams({action:"TEMPLATE",text:"Conversa · "+l.emp,dates:f(s)+"/"+f(s+30*6e4),details:det}).toString();
+}
+
+function renderMeetings(){
+  const m=all().filter(l=>l.status==="reuniao").sort((a,b)=>(a.reuniao?.quando||0)-(b.reuniao?.quando||0));
+  const up=m.filter(l=>!l.reuniao?.feita), done=m.filter(l=>l.reuniao?.feita);
+  const row=l=>`<div class="meet"><div class="when">${l.reuniao?.quando?new Date(l.reuniao.quando).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}):"—"}<small>${l.reuniao?.quando?new Date(l.reuniao.quando).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · "+new Date(l.reuniao.quando).toLocaleDateString("pt-BR",{weekday:"long"}):""}</small></div>
+    <div style="min-width:0"><div class="chips" style="margin-bottom:4px"><span class="chip ${esc(l.seg)}">${esc(SEG[l.seg]?.n||"")}</span>${l.reuniao?.canal?`<span class="chip">${esc(l.reuniao.canal)}</span>`:""}</div>
+      <b>${esc(l.emp)}</b><div class="muted">${esc(l.ct)} · ${esc(l.cid)} · <span class="mono">(${esc(l.ddd)}) ${esc(fmtNum(l))}</span></div>
+      <div style="font-size:13px;margin-top:4px">Quem vai: ${esc((l.reuniao?.quem||[]).join(", ")||"a definir")} · marcada por ${esc(l.reuniao?.por||l.dono)}</div>
+      ${l.nota?`<div class="muted" style="font-size:12px;margin-top:4px">${esc(l.nota)}</div>`:""}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${l.reuniao?.feita?`<span class="chip st-reuniao">Feita</span>`:`<button class="btn small" data-act="done" data-id="${esc(l.id)}">Marcar como feita</button>`}${!l.reuniao?.feita&&l.reuniao?.quando?`<a class="btn small" href="${esc(gcalUrl(l))}" target="_blank" rel="noopener">Pôr no Google Agenda</a>`:""}<button class="btn small" data-act="open" data-id="${esc(l.id)}">Abrir</button></div></div>`;
+  return ptop("Reuniões",`${up.length} pela frente · ${done.length} feita${done.length===1?"":"s"} · visível para todo o squad`)+`<section class="card">
+    ${m.length?up.map(row).join("")+(done.length?`<div class="toolbar"><span class="eyebrow">Já feitas</span></div>`+done.map(row).join(""):""):`<div class="empty"><span class="alpha">α</span><h2>Nenhuma reunião ainda</h2><p class="muted">Quando alguém marcar <b>Aceitou reunião</b> na fila, ela aparece aqui para todo o squad, com data, horário e quem vai participar.</p></div>`}</section>`;
+}
+
+function renderActivity(){
+  const ev=[];for(const id in HIST){for(const h of Object.values(HIST[id]||{})){if(h&&h.t)ev.push({...h,id})}}
+  ev.sort((a,b)=>b.t-a.t);const top=ev.slice(0,12);
+  return `<section class="card panel"><span class="eyebrow">Acontecendo agora</span>${top.length?`<ol class="feed">${top.map(h=>{const l=BYID[h.id]||{};return `<li><b>${esc(h.by)}</b> · ${esc(RES[h.r]?.t||h.r)} · <a href="#fila" data-act="open" data-id="${esc(h.id)}" style="color:inherit">${esc(l.emp||h.id)}</a><small>${fmtDT(h.t)}</small></li>`}).join("")}</ol>`:`<p class="muted" style="margin:0">Os registros do squad aparecem aqui assim que alguém liga.</p>`}</section>`;
+}
+
+function renderAccess(){
+  const rows=Object.entries(ACESSO||{}).filter(([,a])=>a).sort((a,b)=>DEFAULT_TEAM.indexOf(a[1].nome)-DEFAULT_TEAM.indexOf(b[1].nome));
+  return `<section class="card panel"><span class="eyebrow">Acesso (só administradores veem)</span>
+    <div class="tblwrap"><table class="qtable"><thead><tr><th>Pessoa</th><th>E-mail</th><th></th></tr></thead><tbody>
+    ${rows.map(([k,a])=>`<tr><td>${esc(a.nome)}${a.admin?` <span class="light-tag">admin</span>`:""}${a.leve?` <span class="light-tag">fila leve</span>`:""}</td><td style="overflow-wrap:anywhere">${esc(unk(k))}</td><td>${k===ME_KEY?"":`<button class="btn small" data-act="rmacc" data-k="${esc(k)}">Remover</button>`}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="subform"><b style="font-size:13px">Liberar um e-mail</b>
+      <div class="row"><div><label class="lbl" for="accMail">E-mail Google</label><input id="accMail" type="text" inputmode="email" placeholder="nome@gmail.com"></div>
+      <div><label class="lbl" for="accName">Nome no squad</label><select id="accName">${DEFAULT_TEAM.map(n=>`<option>${esc(n)}</option>`).join("")}</select></div></div>
+      <div class="who"><label><input type="checkbox" id="accLeve">Fila leve</label><label><input type="checkbox" id="accAdm">Administrador</label></div>
+      <div><button class="btn gold" data-act="addacc">Liberar acesso</button></div>
+      <span class="legend">O nome precisa ser o mesmo que aparece nas filas, para a pessoa ver os contatos dela.</span></div>
+    <div class="subform"><b style="font-size:13px">Contatos</b><span class="legend">${LEADS.length} contatos no banco. Suba a planilha de leads atualizada: só os contatos novos entram, já divididos entre as filas.</span><div>${importBox()}</div></div>
+  </section>`;
+}
+
+function renderSquad(){
+  const since=rankRange==="semana"?weekStart():rankRange==="hoje"?todayStart():0;
+  const A=all();
+  const rows=TEAM.map(n=>{const s=stats(n,since);const mine=A.filter(l=>l.dono===n);const open=mine.filter(l=>OPEN.has(l.status)).length;const fr=mine.filter(fresh).length;return {n,...s,total:mine.length,open,fresh:fr,done:mine.length-open}});
+  const ranked=[...rows].sort((a,b)=>b.pts-a.pts||b.meets-a.meets||b.calls-a.calls);
+  const maxPts=Math.max(1,...ranked.map(r=>r.pts));
+  const tot=rows.reduce((a,r)=>({calls:a.calls+r.calls,meets:a.meets+r.meets,talks:a.talks+r.talks}),{calls:0,meets:0,talks:0});
+  const openAll=A.filter(l=>OPEN.has(l.status)).length;
+  return ptop("Squad",`${TEAM.length} pessoas · ${openAll} de ${LEADS.length} contatos em aberto`)+`<div class="sgrid">
+    <div style="display:grid;gap:16px;min-width:0">
+    <section class="card"><div class="toolbar"><div><h2>Ranking do Alpha</h2><span class="legend">Ligação registrada 1 pt · conversa 2 pts · reunião marcada 6 pts</span></div>
+      <div class="seg">${[["hoje","Hoje"],["semana","Semana"],["total","Total"]].map(([k,t])=>`<button data-range="${k}" aria-current="${k===rankRange}">${t}</button>`).join("")}</div></div>
+      <ol class="rank">${ranked.map((r,i)=>`<li class="${i===0&&r.pts>0?"lead1":""}"><span class="pos">${i===0&&r.pts>0?"α":i+1}</span><span class="av">${esc(initials(r.n))}</span>
+        <div class="rname"><b>${esc(r.n)}${LIGHT.has(r.n)?`<span class="light-tag">fila leve</span>`:""}</b><small>${r.calls} registros · ${r.talks} conversas · ${r.meets} reuniões</small><div class="bar"><i style="width:${Math.round(r.pts/maxPts*100)}%"></i></div></div>
+        <div class="pts">${r.pts}<small>pts</small></div></li>`).join("")}</ol></section>
+    ${renderActivity()}
+    </div>
+    <div style="display:grid;gap:16px;min-width:0">
+      <section class="card panel"><span class="eyebrow">Squad no período</span>
+        <div class="kpis">${[["Registros",tot.calls],["Conversas",tot.talks],["Reuniões",tot.meets]].map(([t,v])=>`<div><strong>${v}</strong><small>${t}</small></div>`).join("")}</div>
+        <div class="muted" style="font-size:12px">${openAll} contatos ainda em aberto de ${LEADS.length}.</div></section>
+      <section class="card panel"><span class="eyebrow">Filas</span>
+        <div class="tblwrap"><table class="qtable"><thead><tr><th>Pessoa</th><th style="text-align:right">Total</th><th style="text-align:right">Sem contato</th><th style="text-align:right">Em aberto</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td class="n">${r.total}</td><td class="n">${r.fresh}</td><td class="n">${r.open}</td></tr>`).join("")}</tbody></table></div>
+        <div class="subform"><b style="font-size:13px">Passar contatos de uma fila para outra</b>
+          <div class="row"><div><label class="lbl" for="trFrom">De</label><select id="trFrom">${rows.slice().sort((a,b)=>b.fresh-a.fresh).map(r=>`<option>${esc(r.n)}</option>`).join("")}</select></div>
+          <div><label class="lbl" for="trTo">Para</label><select id="trTo">${TEAM.map(n=>`<option ${n===me?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
+          <div><label class="lbl" for="trN">Quantos</label><input id="trN" type="number" min="1" max="100" value="10"></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn gold" data-act="transfer">Passar contatos</button><button class="btn" data-act="balance">Equilibrar quem ficou sem fila</button></div>
+          <span class="legend">Só passam contatos que ninguém ligou ainda. "Equilibrar" dá 10 para cada pessoa sem contatos novos, tirando de quem tem mais.</span></div></section>
+      ${isAdmin?renderAccess():""}
+    </div></div>`;
+}
+
+function renderAll(){
+  const A=all().filter(l=>(!filt.seg||l.seg===filt.seg)&&(!filt.st||l.status===filt.st)&&(!filt.dono||l.dono===filt.dono)&&(!filt.q||(l.emp+" "+l.ct+" "+l.cid+" "+l.tel).toLowerCase().includes(filt.q.toLowerCase())));
+  const shown=A.slice(0,300);
+  return ptop("Todos os contatos",`${LEADS.length} contatos do squad`)+`<section class="card"><div class="filters">
+    <input id="fq" type="search" placeholder="Buscar clínica, contato, cidade ou telefone" value="${esc(filt.q)}" aria-label="Buscar">
+    <select id="fseg" aria-label="Segmento"><option value="">Todos os segmentos</option>${Object.entries(SEG).map(([k,s])=>`<option value="${k}" ${filt.seg===k?"selected":""}>${s.n}</option>`).join("")}</select>
+    <select id="fst" aria-label="Situação"><option value="">Todas as situações</option>${Object.entries(ST_LABEL).map(([k,t])=>`<option value="${k}" ${filt.st===k?"selected":""}>${t}</option>`).join("")}</select>
+    <select id="fdono" aria-label="Responsável"><option value="">Todo o squad</option>${TEAM.map(n=>`<option ${filt.dono===n?"selected":""}>${esc(n)}</option>`).join("")}</select>
+    <button class="btn" data-act="csv">Baixar CSV</button></div>
+    <div class="tblwrap" style="max-height:70vh;overflow:auto"><table class="list"><thead><tr><th>Clínica</th><th>Segmento</th><th>Cidade</th><th>Telefone</th><th>Situação</th><th>Fila</th><th></th></tr></thead>
+    <tbody>${shown.map(l=>`<tr><td><b>${esc(l.emp)}</b><div class="muted" style="font-size:12px">${esc(l.ct)}</div></td><td><span class="chip ${esc(l.seg)}">${esc(SEG[l.seg]?.n||"")}</span></td><td>${esc(l.cid)}</td><td class="mono">${esc(l.tel)}</td><td><span class="chip st-${l.status}">${ST_LABEL[l.status]}</span></td><td>${esc(l.dono)}</td><td><button class="btn small" data-act="open" data-id="${esc(l.id)}">Abrir</button></td></tr>`).join("")}</tbody></table></div>
+    <div class="toolbar"><span class="muted">${A.length} contato${A.length===1?"":"s"}${A.length>shown.length?` · mostrando os primeiros ${shown.length}, use a busca para achar os outros`:""}</span></div></section>`;
+}
+
+/* ---------- behaviour ---------- */
+function afterRender(){
+  const q=document.getElementById("qr");
+  if(q&&window.qrcode){try{const c=qrcode(0,"M");c.addData("tel:"+q.dataset.tel);c.make();q.innerHTML=c.createSvgTag(4,0)}catch(e){q.textContent="QR indisponível"}}
+  else if(q) q.textContent="QR indisponível";
+  const d=document.getElementById("dddIn");if(d)d.onchange=()=>{const v=d.value.replace(/\D/g,"").slice(0,2);if(v.length===2){myDDD=v;lsSet("alpha.ddd",v);render()}};
+  const c=document.getElementById("cspIn");if(c)c.onchange=()=>{csp=c.value;lsSet("alpha.csp",csp);render()};
+  const f=document.getElementById("impFile");if(f)f.onchange=()=>{onImport(f.files&&f.files[0]);f.value=""};
+  ["fq","fseg","fst","fdono"].forEach(id=>{const el=document.getElementById(id);if(!el)return;const key={fq:"q",fseg:"seg",fst:"st",fdono:"dono"}[id];
+    el[id==="fq"?"oninput":"onchange"]=()=>{filt[key]=el.value;const pos=el.selectionStart;render();const n=document.getElementById(id);if(id==="fq"){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}});
+}
+
+function currentLead(){if(pinned)return L(pinned);const q=queueOf(me).filter(l=>!skipped.has(l.id)&&(l.status==="novo"||isDue(l)));return q[0]||null}
+
+function record(k){
+  const l=currentLead();if(!l||!me)return;
+  const nota=(document.getElementById("nota")?.value||"").trim();
+  const p="estado/"+l.id+"/";const hk=rdb.ref("hist/"+l.id).push().key;
+  const m={};m["hist/"+l.id+"/"+hk]={t:Date.now(),by:me,r:k};
+  m[p+"nota"]=nota||null;
+  if(k==="na"||k==="cp"||k==="wa"){const tent=l.tent+1;m[p+"tent"]=tent;m[p+"status"]=tent>=3&&k!=="wa"?"sem_retorno":"tentando";m[p+"prox"]=Date.now()+2*DAY}
+  if(k==="ret"){const v=document.getElementById("retWhen")?.value;m[p+"status"]="retornar";m[p+"prox"]=v?new Date(v).getTime():Date.now()+DAY}
+  if(k==="reu"){const v=document.getElementById("reuWhen")?.value;const quem=[...document.querySelectorAll('input[name="reuWho"]:checked')].map(i=>i.value);
+    m[p+"status"]="reuniao";m[p+"prox"]=null;m[p+"reuniao"]={quando:v?new Date(v).getTime():null,quem,canal:document.getElementById("reuCanal")?.value||"",feita:false,por:me}}
+  if(k==="rec")m[p+"status"]="recusou";
+  if(k==="fora")m[p+"status"]="fora";
+  if(k==="err")m[p+"status"]="errado";
+  W(m);
+  pinned=null;toast(`${RES[k].t} · +${RES[k].p} pt${RES[k].p>1?"s":""}`);render();window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function move(from,to,n){
+  const pool=all().filter(l=>l.dono===from&&fresh(l)).sort((a,b)=>b.o-a.o).slice(0,n);
+  if(!pool.length)return 0;
+  const maxO=Math.max(0,...all().filter(l=>l.dono===to).map(l=>l.o||0));
+  const m={};pool.forEach((l,i)=>{m["estado/"+l.id+"/dono"]=to;m["estado/"+l.id+"/o"]=maxO+i+1});
+  W(m);return pool.length;
+}
+function pull(n){
+  let left=n,got=0;
+  while(left>0){
+    const counts=TEAM.filter(t=>t!==me).map(t=>[t,all().filter(l=>l.dono===t&&fresh(l)).length]).sort((a,b)=>b[1]-a[1]);
+    if(!counts.length||counts[0][1]===0)break;
+    const take=Math.min(left,Math.max(1,Math.ceil(left/2)),counts[0][1]);
+    const k=move(counts[0][0],me,take);if(!k)break;got+=k;left-=k;
+  }
+  toast(got?`Você puxou ${got} contato${got>1?"s":""}`:"Ninguém tem contatos novos sobrando");render();
+}
+
+/* ===== Importar planilha (Excel/CSV): reconhece as colunas, ignora repetidos e divide entre as filas ===== */
+const FIELDS=[["tel","Telefone",/telefone|fone|celular|whats|^tel/],["em","E-mail",/e-?mail/],["emp","Empresa / clínica",/fantasia|empresa|clinica|estabelecimento|razao|nome da/],["ct","Pessoa de contato",/socio|respons|contato|propriet|titular|^nome$/],["cid","Cidade",/cidade|munic/],["seg","Segmento",/segmento|categoria|cnae|atividade|tipo|area|ramo/],["ab","Abertura",/abertura|inicio|fundac/]];
+let IMP=null;
+const norm=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+function autoMap(h){const m={},used=new Set();for(const [k,,re] of FIELDS){const i=(h||[]).findIndex((c,j)=>!used.has(j)&&re.test(norm(c)));m[k]=i;if(i>=0)used.add(i)}return m}
+function segOf(t,def){const n=norm(t);if(!n)return def;if(/odont|dent/.test(n))return "odo";if(/estet|biomed|harmoniz|beleza/.test(n))return /salao|cabel|unha/.test(n)?"sal":"est";if(/salao|cabel|unha|barbear/.test(n))return "sal";if(/medic|clinic|saude|consult/.test(n))return "med";return def}
+function phoneOf(raw){for(const part of String(raw??"").split(/[\/;,|]| e /)){let d=part.replace(/\D/g,"");if(d.startsWith("55")&&d.length>=12)d=d.slice(2);d=d.replace(/^0+/,"");if(d.length===12&&/^\d{2}\d{10}$/.test(d))d=d.slice(2);if(d.length<10||d.length>11)continue;
+  const ddd=d.slice(0,2),num=d.slice(2),cel=num.length===9;return {ddd,num,cel,tel:`(${ddd}) ${cel?num.slice(0,5)+"-"+num.slice(5):num.slice(0,4)+"-"+num.slice(4)}`}}return null}
+function parseCSV(t){const fl=t.split(/\r?\n/)[0]||"";const dl=(fl.match(/;/g)||[]).length>(fl.match(/,/g)||[]).length?";":",";const rows=[];let row=[],cell="",q=false;
+  for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cell+='"';i++}else q=false}else cell+=c}else if(c==='"')q=true;else if(c===dl){row.push(cell);cell=""}else if(c==="\n"||c==="\r"){if(c==="\r"&&t[i+1]==="\n")i++;row.push(cell);rows.push(row);row=[];cell=""}else cell+=c}
+  if(cell!==""||row.length){row.push(cell);rows.push(row)}return rows}
+function loadXLSX(){return window.XLSX?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";s.onload=()=>res();s.onerror=()=>rej(new Error("leitor de Excel não carregou"));document.head.appendChild(s)})}
+async function onImport(file){
+  if(!file||!isAdmin)return;
+  const ext=(file.name.split(".").pop()||"").toLowerCase();
+  if(ext==="json")return importLeads(file);
+  const sheets={};
+  try{
+    if(ext==="csv"){const buf=await file.arrayBuffer();let t;try{t=new TextDecoder("utf-8",{fatal:true}).decode(buf)}catch(e){t=new TextDecoder("windows-1252").decode(buf)}sheets["Planilha"]=parseCSV(t)}
+    else{await loadXLSX();const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});wb.SheetNames.forEach(n=>{sheets[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,defval:""})})}
+  }catch(e){toast("Não consegui ler a planilha: "+e.message+". Tente salvar como CSV.");return}
+  for(const n in sheets)sheets[n]=sheets[n].map(r=>r.map(c=>String(c??"").trim())).filter(r=>r.some(c=>c));
+  const names=Object.keys(sheets).filter(n=>sheets[n].length>1);
+  if(!names.length){toast("A planilha está vazia");return}
+  const sheet=names.find(n=>{const m=autoMap(sheets[n][0]);return m.tel>=0&&m.emp>=0})||names[0];
+  IMP={name:file.name,sheets,names,sheet,map:autoMap(sheets[sheet][0]),defSeg:"med"};paintImp();
+}
+function computeImp(){
+  const rows=IMP.sheets[IMP.sheet].slice(1),m=IMP.map,have=new Set(LEADS.map(l=>l.ddd+l.num)),seen=new Set(),out=[];let dup=0,bad=0;
+  const col=(r,k)=>m[k]>=0?String(r[m[k]]??"").trim():"";
+  for(const r of rows){const p=phoneOf(col(r,"tel"));const emp=col(r,"emp")||col(r,"ct");if(!p||!emp){bad++;continue}
+    const k=p.ddd+p.num;if(have.has(k)||seen.has(k)){dup++;continue}seen.add(k);
+    out.push({emp,ct:col(r,"ct"),cid:col(r,"cid"),seg:segOf(col(r,"seg"),IMP.defSeg),tel:p.tel,ddd:p.ddd,num:p.num,cel:p.cel,em:col(r,"em"),ab:col(r,"ab")})}
+  return {out,dup,bad,total:rows.length};
+}
+function paintImp(){
+  const md=document.getElementById("impModal");if(!IMP){md.hidden=true;return}
+  const hdr=IMP.sheets[IMP.sheet][0],c=computeImp();
+  const opt=i=>`<option value="-1">— não usar —</option>`+hdr.map((h,j)=>`<option value="${j}" ${j===i?"selected":""}>${esc(h||"Coluna "+(j+1))}</option>`).join("");
+  md.querySelector(".card").innerHTML=`<div><span class="eyebrow">Importar leads</span><h2 style="overflow-wrap:anywhere">${esc(IMP.name)}</h2></div>
+    ${IMP.names.length>1?`<div class="maprow"><label class="lbl" for="impSheet" style="margin:0">Aba</label><select id="impSheet">${IMP.names.map(n=>`<option ${n===IMP.sheet?"selected":""}>${esc(n)}</option>`).join("")}</select></div>`:""}
+    <div style="display:grid;gap:8px"><span class="lbl" style="margin:0">Colunas reconhecidas (confira e ajuste se precisar)</span>
+    ${FIELDS.map(([k,t])=>`<div class="maprow"><label class="lbl" for="map_${k}" style="margin:0">${t}</label><select id="map_${k}" data-map="${k}">${opt(IMP.map[k])}</select></div>`).join("")}
+    <div class="maprow"><label class="lbl" for="impSeg" style="margin:0">Segmento padrão</label><select id="impSeg">${Object.entries(SEG).map(([k,s])=>`<option value="${k}" ${k===IMP.defSeg?"selected":""}>${s.n}</option>`).join("")}</select></div></div>
+    <div class="impstats"><span><b>${c.out.length}</b> novos</span><span class="muted"><b>${c.dup}</b> já estavam no CRM</span><span class="muted"><b>${c.bad}</b> sem telefone ou nome</span></div>
+    <span class="legend">Os novos entram divididos entre as filas do squad${LIGHT.size?` (${[...LIGHT].join(" e ")} recebem menos)`:""}.</span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn gold" data-act="impgo" ${c.out.length?"":"disabled"}>Importar ${c.out.length} contato${c.out.length===1?"":"s"}</button><button class="btn" data-act="impcancel">Cancelar</button></div>`;
+  md.hidden=false;
+  const sh=document.getElementById("impSheet");if(sh)sh.onchange=()=>{IMP.sheet=sh.value;IMP.map=autoMap(IMP.sheets[IMP.sheet][0]);paintImp()};
+  md.querySelectorAll("[data-map]").forEach(s=>s.onchange=()=>{IMP.map[s.dataset.map]=+s.value;paintImp()});
+  const sg=document.getElementById("impSeg");sg.onchange=()=>{IMP.defSeg=sg.value;paintImp()};
+}
+async function impGo(btn){
+  const {out}=computeImp();if(!out.length)return;btn.disabled=true;
+  const team=TEAM.length?TEAM:DEFAULT_TEAM,w=n=>LIGHT.has(n)?.25:1,cnt={},maxO={};
+  team.forEach(n=>{cnt[n]=0;maxO[n]=Math.max(0,...all().filter(l=>l.dono===n).map(l=>l.o||0))});
+  let nmax=Math.max(0,...LEADS.map(l=>parseInt(String(l.id).replace(/\D/g,""),10)||0));
+  const m={};
+  for(const l of out){const d=team.slice().sort((a,b)=>cnt[a]/w(a)-cnt[b]/w(b))[0];cnt[d]++;nmax++;
+    m["leads/L"+String(nmax).padStart(3,"0")]={...l,dono:d,o:maxO[d]+cnt[d]}}
+  try{await rdb.ref().update(m);IMP=null;paintImp();toast(`${out.length} contatos novos nas filas`)}catch(e){btn.disabled=false;toast("Não importou: "+(e.code||e.message))}
+}
+
+async function importLeads(file){
+  if(!file||!isAdmin)return;
+  let data;try{data=JSON.parse(await file.text())}catch(e){toast("Esse arquivo não é um JSON válido");return}
+  if(data&&data.leads)data=data.leads;
+  const map={};
+  if(Array.isArray(data))data.forEach((l,i)=>{if(l&&typeof l==="object"){const id=String(l.id||("L"+String(i+1).padStart(3,"0")));const c={...l};delete c.id;map[id]=c}});
+  else if(data&&typeof data==="object")Object.entries(data).forEach(([id,l])=>{if(l&&typeof l==="object")map[id.replace(/[.#$\[\]\/]/g,"_")]=l});
+  const n=Object.keys(map).length;
+  if(!n){toast("Não achei contatos nesse arquivo");return}
+  if(LEADS.length&&!confirm(`Substituir os ${LEADS.length} contatos atuais por ${n} contatos deste arquivo?`))return;
+  try{await rdb.ref("leads").set(map);toast(`${n} contatos importados`)}catch(e){toast("Não importou: "+(e.code||e.message))}
+}
+
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("[data-act],[data-res],[data-stab],[data-range],#tabs button,#meBtn");if(!t)return;
+  if(t.closest("#tabs")){view=t.dataset.v;location.hash=view;pinned=null;render();return}
+  if(t.id==="meBtn"){const m=document.getElementById("acctModal");document.getElementById("acctTxt").innerHTML=`<b>${esc(me||"Sem acesso")}</b><br><span class="muted">${esc(USER&&USER.email)}</span>${isAdmin?` <span class="light-tag">admin</span>`:""}`;m.hidden=false;return}
+  if(t.dataset.stab){scriptTab=t.dataset.stab;render();return}
+  if(t.dataset.range){rankRange=t.dataset.range;render();return}
+  if(t.dataset.res&&!t.dataset.act){const k=t.dataset.res;if(k==="ret"||k==="reu"){document.getElementById("subform").innerHTML=subformFor(k);document.querySelector("#subform input")?.focus()}else record(k);return}
+  const a=t.dataset.act;
+  if(a==="login")gLogin();
+  if(a==="logout"||a==="signout")gOut();
+  if(a==="closeacct")document.getElementById("acctModal").hidden=true;
+  if(a==="reload")location.reload();
+  if(a==="setup"){const nome=document.getElementById("setupName").value;t.disabled=true;
+    try{await rdb.ref("acesso/"+ME_KEY).set({nome,admin:true})}catch(err){t.disabled=false;toast("Não deu: "+(err.code||err.message))}}
+  if(a==="addacc"){const mail=document.getElementById("accMail").value.trim();const nome=document.getElementById("accName").value;
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){toast("Confira o e-mail");return}
+    const v={nome};if(document.getElementById("accLeve").checked)v.leve=true;if(document.getElementById("accAdm").checked)v.admin=true;
+    try{await rdb.ref("acesso/"+ek(mail)).set(v);toast(`${nome} liberado(a)`)}catch(err){toast("Não salvou: "+(err.code||err.message))}}
+  if(a==="rmacc"){const k=t.dataset.k;if(!confirm(`Tirar o acesso de ${unk(k)}?`))return;try{await rdb.ref("acesso/"+k).remove();toast("Acesso removido")}catch(err){toast("Não removeu: "+(err.code||err.message))}}
+  if(a==="impgo")impGo(t);
+  if(a==="impcancel"){IMP=null;paintImp()}
+  if(a==="confirm")record(t.dataset.res);
+  if(a==="cancel"){document.getElementById("subform").innerHTML="";if(dirty){dirty=false;render()}}
+  if(a==="skip"){const l=currentLead();if(l)skipped.add(l.id);render()}
+  if(a==="unpin"){pinned=null;render()}
+  if(a==="open"){e.preventDefault();pinned=t.dataset.id;view="fila";location.hash="fila";render();window.scrollTo({top:0})}
+  if(a==="copy"){copy(t.dataset.v,"Número copiado")}
+  if(a==="copywa"){copy(document.getElementById("waText").textContent,"Mensagem copiada")}
+  if(a==="pull"){pull(+t.dataset.n)}
+  if(a==="transfer"){const f=document.getElementById("trFrom").value,to=document.getElementById("trTo").value,n=Math.max(1,Math.min(100,+document.getElementById("trN").value||0));
+    if(f===to){toast("Escolha duas pessoas diferentes");return}const k=move(f,to,n);toast(k?`${k} contato${k>1?"s":""} de ${f} para ${to}`:`${f} não tem contatos novos para passar`);render()}
+  if(a==="balance"){let moved=0;
+    for(const n of TEAM){if(LIGHT.has(n))continue;const fr=all().filter(l=>l.dono===n&&fresh(l)).length;if(fr>0)continue;
+      const donor=TEAM.filter(x=>x!==n).map(x=>[x,all().filter(l=>l.dono===x&&fresh(l)).length]).sort((a,b)=>b[1]-a[1])[0];
+      if(donor&&donor[1]>10)moved+=move(donor[0],n,10)}
+    toast(moved?`${moved} contatos redistribuídos`:"Todo mundo ainda tem contatos novos");render()}
+  if(a==="done"){W({["estado/"+t.dataset.id+"/reuniao/feita"]:true});render()}
+  if(a==="csv")exportCsv();
+});
+async function copy(txt,msg){try{await navigator.clipboard.writeText(txt);toast(msg)}catch(e){toast("Selecione e copie manualmente")}}
+document.addEventListener("keydown",e=>{
+  if(phase!=="app"||view!=="fila"||e.metaKey||e.ctrlKey||e.altKey)return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName))return;
+  if(!document.getElementById("acctModal").hidden||!document.getElementById("impModal").hidden)return;
+  if(e.key==="ArrowRight"){const l=currentLead();if(l&&!pinned){skipped.add(l.id);render()}return}
+  const k=Object.entries(RES).find(([,r])=>r.k===e.key.toLowerCase());
+  if(k){e.preventDefault();document.querySelector(`[data-res="${k[0]}"]`)?.click()}
+});
+window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(["fila","reunioes","squad","todos"].includes(v)&&v!==view){view=v;render()}});
+
+function exportCsv(){
+  const head=["id","empresa","contato","segmento","cidade","telefone","email","fila","situacao","tentativas","ultima_acao","por","quando","reuniao","participantes","anotacao"];
+  const rows=all().map(l=>{const h=l.hist[l.hist.length-1];return [l.id,l.emp,l.ct,SEG[l.seg]?.n||"",l.cid,l.tel,l.em,l.dono,ST_LABEL[l.status],l.tent,h?RES[h.r]?.t:"",h?h.by:"",h?fmtDT(h.t):"",l.reuniao?.quando?fmtDT(l.reuniao.quando):"",(l.reuniao?.quem||[]).join(" / "),l.nota||""]});
+  const csv=[head,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const url=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download="alpha-contatos.csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
+/* Não apaga uma anotação ou formulário aberto quando outra pessoa salva */
+let dirty=false,down=false;
+function editing(){const a=document.activeElement;const sf=document.getElementById("subform");return down||(a&&a.closest&&a.closest("#app")&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||(sf&&sf.innerHTML.trim()!=="")}
+function softRender(){if(phase==="app"&&editing()){dirty=true;paintConn();return}dirty=false;render()}
+document.addEventListener("pointerdown",()=>{down=true},true);
+["pointerup","pointercancel"].forEach(ev=>document.addEventListener(ev,()=>setTimeout(()=>{down=false;if(dirty&&!editing()){dirty=false;render()}},150),true));
+document.addEventListener("focusout",()=>setTimeout(()=>{if(dirty&&!editing()){dirty=false;render()}},60));
+
+render();
+
+</script>
+</body>
+</html>
