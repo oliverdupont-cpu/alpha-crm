@@ -19,7 +19,7 @@
   --bg:#0a0a0c; --sb:#0e0e11; --card:#131317; --in:#0f0f12; --hov:#18181d; --bd:#222228; --bd2:#2e2e36;
   --tx:#ededf0; --mu:#8b8b96; --mu2:#5f5f6a;
   --pr:#c8323f; --pr2:#a92633; --pri:#ec8a93; --pr-soft:rgba(200,50,63,.12); --pr-line:rgba(200,50,63,.5);
-  --ok:#4fae84; --ok-soft:rgba(79,174,132,.12); --warn:#d1a046; --warn-soft:rgba(209,160,70,.10); --info:#7d9fe0; --info-soft:rgba(125,159,224,.12);
+  --bad:#e5534b; --ok:#4fae84; --ok-soft:rgba(79,174,132,.12); --warn:#d1a046; --warn-soft:rgba(209,160,70,.10); --info:#7d9fe0; --info-soft:rgba(125,159,224,.12);
   --f:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:14px; color-scheme:dark;
 }
@@ -379,11 +379,11 @@ let phase=fbErr?"error":"auth"; // auth | login | denied | setup | app | error
 let phaseMsg=fbErr;
 let RAW={leads:null,estado:{},hist:{},respostas:{},quali:{},config:{}},got={leads:false,estado:false,hist:false},live=false;
 let LEADS=[],BYID={},EST={},HIST={},RESP={},QUALIA={},CONFIG={},ready=false,online=false,lastErr=null;
-let noteDraft={id:null,val:""},qualiOpen=null,qualiT={};
+let noteDraft={id:null,val:""},qualiOpen=null,qualiT={},curId=null,lockUntil=0,connSeen=false,remarcId=null;
 let pmode=lsGet("alpha.modo")||"crm";
 let PQ={},subs=[],dataOn=false;
 const readonly=false;
-let myDDD=lsGet("alpha.ddd")||"51", csp=lsGet("alpha.csp")||"15";
+let myDDD=lsGet("alpha.ddd")||"51", csp=lsGet("alpha.csp")||"15", always=lsGet("alpha.always")==="1";
 let view=(location.hash||"#fila").slice(1); if(!["fila","reunioes","squad","todos"].includes(view)) view="fila";
 let pinned=null, skipped=new Set(), scriptTab="ligacao", rankRange="semana";
 let filt={q:"",seg:"",st:"",dono:""};
@@ -397,7 +397,7 @@ function first(n){return (n||"").split(" ")[0]||""}
 function clone(o){return o==null?o:JSON.parse(JSON.stringify(o))}
 function toast(m){const t=document.getElementById("toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
 function fmtNum(l){const n=String(l.num||"");return n.length===9?n.slice(0,5)+"-"+n.slice(5):n.slice(0,4)+"-"+n.slice(4)}
-function dialStr(l){return l.ddd===myDDD?l.num:"0"+csp+l.ddd+l.num}
+function dialStr(l){return (!always&&l.ddd===myDDD)?l.num:"0"+csp+l.ddd+l.num}
 function fmtDT(ts){if(!ts)return"";const d=new Date(ts);return d.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"})+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
 function toLocalInput(ts){const d=new Date(ts-new Date().getTimezoneOffset()*6e4);return d.toISOString().slice(0,16)}
 const ek=e=>String(e||"").trim().toLowerCase().replace(/\./g,",");
@@ -405,13 +405,21 @@ const unk=k=>String(k).replace(/,/g,".");
 
 /* ===== Fila de envio: tudo é salvo neste aparelho primeiro e só sai da fila quando o servidor confirma ===== */
 const pqKey=()=>"alpha.pq."+ME_KEY;
-function loadPQ(){try{PQ=JSON.parse(lsGet(pqKey())||"{}")||{}}catch(e){PQ={}}}
+function loadPQ(){try{PQ=JSON.parse(lsGet(pqKey())||"{}")||{}}catch(e){PQ={}}normPQ()}
 function savePQ(){if(!ME_KEY)return;if(Object.keys(PQ).length)lsSet(pqKey(),JSON.stringify(PQ));else lsDel(pqKey())}
 function setPath(o,path,val){const p=path.split("/");let t=o;for(let i=0;i<p.length-1;i++){if(t[p[i]]==null||typeof t[p[i]]!=="object")t[p[i]]={};t=t[p[i]]}const k=p[p.length-1];if(val===null)delete t[k];else t[k]=clone(val)}
-function W(map){Object.assign(PQ,clone(map));savePQ();derive();send(map);paintConn()}
+function pqPut(k,v){
+  for(const p of Object.keys(PQ)){if(p.startsWith(k+"/"))delete PQ[p]}
+  const anc=Object.keys(PQ).find(p=>k.startsWith(p+"/"));
+  if(anc){if(!PQ[anc]||typeof PQ[anc]!=="object")PQ[anc]={};setPath(PQ[anc],k.slice(anc.length+1),v)}
+  else PQ[k]=clone(v);
+}
+function normPQ(){const old=PQ;PQ={};Object.keys(old).sort((a,b)=>a.length-b.length).forEach(k=>pqPut(k,old[k]))}
+function W(map){for(const k in map)pqPut(k,map[k]);savePQ();derive();send(map);paintConn()}
 function send(map){
   if(!rdb)return;
-  rdb.ref().update(map).then(()=>{
+  let pr;try{pr=rdb.ref().update(map)}catch(e){console.warn(e);lastErr=e;paintConn();return}
+  pr.then(()=>{
     for(const k in map){if(Object.prototype.hasOwnProperty.call(PQ,k)&&JSON.stringify(PQ[k])===JSON.stringify(map[k]))delete PQ[k]}
     savePQ();lastErr=null;paintConn();
   }).catch(e=>{
@@ -420,7 +428,7 @@ function send(map){
     paintConn();
   });
 }
-function flush(){if(Object.keys(PQ).length)send(clone(PQ))}
+function flush(){if(Object.keys(PQ).length){normPQ();savePQ();send(clone(PQ))}}
 function derive(){
   const o={estado:clone(RAW.estado||{}),hist:clone(RAW.hist||{}),respostas:clone(RAW.respostas||{}),quali:clone(RAW.quali||{})};
   for(const p in PQ){if(/^(estado|hist|respostas|quali)\//.test(p))setPath(o,p,PQ[p])}
@@ -442,11 +450,12 @@ function paintConn(){
   if(phase!=="app"){dot.hidden=true;tx.hidden=true;return}
   dot.hidden=false;
   if(lastErr&&!/permission/i.test(lastErr.code||"")){col="var(--bad)";t="Erro ao salvar: "+(lastErr.message||lastErr.code||"falha")+". As alterações continuam guardadas neste aparelho."}
+  else if(!online&&!connSeen){col="var(--mu2)";t="Conectando ao banco…"}
   else if(!online){col="var(--warn)";t="Sem conexão com o banco. O que você registrar fica salvo neste aparelho e é enviado quando a internet voltar."}
   else if(n){col="var(--warn)";t="Enviando "+n+" alteração(ões)…"}
   else {col="var(--ok)";t="Sincronizado: tudo o que o squad registra aparece aqui na hora."}
   dot.style.background=col;dot.title=t;dot.setAttribute("aria-label",t);
-  const short=!online?(n?n+" pendente"+(n>1?"s":"")+" · offline":"Offline · salvando aqui"):n?"Enviando "+n+"…":"Sincronizado";
+  const short=lastErr&&!/permission/i.test(lastErr.code||"")?"Erro ao salvar":!online?(!connSeen?"Conectando…":n?n+" pendente"+(n>1?"s":"")+" · offline":"Offline · salvando aqui"):n?"Enviando "+n+"…":"Sincronizado";
   tx.textContent=short;tx.hidden=false;tx.title=t;
 }
 
@@ -463,7 +472,7 @@ if(auth){
       ACESSO=v;
       if(!v){phase="setup";render();return}
       const mine=v[ME_KEY];
-      if(!mine){phase="denied";render();return}
+      if(!mine){if(phase==="app")unsubAll();phase="denied";render();return}
       me=mine.nome;isAdmin=!!mine.admin;
       if(phase!=="app"){phase="app";startData()}
       derive();softRender();
@@ -482,7 +491,11 @@ async function gLogin(){
   try{await auth.signInWithPopup(pr)}
   catch(e){if(e&&e.code==="auth/popup-blocked"){try{await auth.signInWithRedirect(pr);return}catch(e2){e=e2}}phaseMsg=authMsg(e);render()}
 }
-function gOut(){document.getElementById("acctModal").hidden=true;if(auth)auth.signOut()}
+function gOut(){
+  const n=Object.keys(PQ).length;
+  if(n&&!confirm(`Há ${n} alteração(ões) ainda não enviadas. Elas serão enviadas quando você entrar de novo neste aparelho. Sair mesmo assim?`))return;
+  if(ME_KEY)lsDel("alpha.cache."+ME_KEY);
+  document.getElementById("acctModal").hidden=true;curId=null;pinned=null;if(auth)auth.signOut()}
 
 function startData(){
   if(dataOn)return;dataOn=true;
@@ -496,7 +509,7 @@ function startData(){
   listen("respostas",v=>{RAW.respostas=v||{};derive();cache();softRender()},fail);
   listen("quali",v=>{RAW.quali=v||{};derive();cache();if(!qualiOpen)softRender()},fail);
   listen("config",v=>{RAW.config=v||{};derive();cache();softRender()},fail);
-  const cref=rdb.ref(".info/connected");const ccb=cref.on("value",s=>{online=!!s.val();if(online)flush();paintConn()});subs.push(()=>cref.off("value",ccb));
+  const cref=rdb.ref(".info/connected");const ccb=cref.on("value",s=>{online=!!s.val();if(online){connSeen=true;flush()}paintConn()});subs.push(()=>cref.off("value",ccb));
 }
 
 /* ===== Lead efetivo = dado fixo + estado compartilhado ===== */
@@ -524,7 +537,7 @@ function gate(){
   const logo=`<span class="alpha">α</span>`;
   if(phase==="error")return `<div class="card empty">${logo}<h2>Não deu para conectar</h2><p class="muted">${esc(phaseMsg||"Erro desconhecido.")}</p><button class="btn gold" data-act="reload">Recarregar</button></div>`;
   if(phase==="auth")return `<div class="card empty">${logo}<h2>Conectando ao banco do squad…</h2></div>`;
-  if(phase==="login")return `<div class="card empty gatecard">${logo}<h2>Entre com a sua conta Google</h2><p class="muted">Use o e-mail que você passou para o Oliver. Cada registro fica com o seu nome, e todo o squad acompanha em tempo real.</p>${phaseMsg?`<p class="err">${esc(phaseMsg)}</p>`:""}<button class="btn gold" data-act="login">Entrar com Google</button></div>`;
+  if(phase==="login")return `<div class="card empty gatecard">${logo}<h2>Entre com a sua conta Google</h2><p class="muted">Use o e-mail que você passou para o Oliver. Cada registro fica com o seu nome, e todo o squad acompanha em tempo real.</p>${phaseMsg?`<p class="err">${esc(phaseMsg)}</p>`:""}<button class="btn gold" data-act="login">Entrar com Google</button><p class="legend" style="margin:0;max-width:360px">Se a janela do Google não abrir, abra o link direto no Chrome ou no Safari, e não pelo navegador interno do WhatsApp ou do Instagram.</p></div>`;
   if(phase==="denied")return `<div class="card empty gatecard">${logo}<h2>Este e-mail ainda não tem acesso</h2><p class="muted">Você entrou como <b>${esc(USER&&USER.email)}</b>. Peça ao Oliver para incluir esse e-mail na aba Squad › Acesso, depois toque em “Tentar de novo”.</p><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn gold" data-act="reload">Tentar de novo</button><button class="btn" data-act="logout">Entrar com outro e-mail</button></div></div>`;
   if(phase==="setup")return `<div class="card empty gatecard">${logo}<h2>Primeira configuração</h2><p class="muted">Ninguém configurou o acesso ainda. Quem fizer isto vira administrador: consegue liberar os e-mails do squad e importar os contatos.</p>
     <div style="display:grid;gap:8px;width:min(100%,320px);text-align:left"><label class="lbl" for="setupName">Qual é o seu nome no squad?</label><select id="setupName">${DEFAULT_TEAM.map(n=>`<option>${esc(n)}</option>`).join("")}</select></div>
@@ -561,12 +574,13 @@ function importBox(){return `<div><label class="btn gold" style="cursor:pointer"
 function renderQueue(){
   const q=queueOf(me).filter(l=>!skipped.has(l.id));
   const due=q.filter(l=>l.status==="novo"||isDue(l));
-  const cur=pinned?L(pinned):due[0];
+  const cur=currentLead();
   const s=stats(me,todayStart());
   const waiting=queueOf(me).filter(l=>l.status!=="novo"&&!isDue(l)).length;
   const head=ptop("Minha fila",`${esc(me)} · ${due.length} para ligar agora${waiting?` · ${waiting} aguardando retorno`:""} · hoje ${s.calls} registro${s.calls===1?"":"s"}, ${s.pts} pts`,
     `<label class="pf" for="dddIn">Meu DDD <input id="dddIn" type="text" inputmode="numeric" maxlength="2" value="${esc(myDDD)}"></label>
-    <label class="pf" for="cspIn">Outro DDD via <select id="cspIn">${[["15","Vivo 015"],["21","Claro 021"],["41","TIM 041"],["31","Oi 031"]].map(([v,t])=>`<option value="${v}" ${v===csp?"selected":""}>${t}</option>`).join("")}</select></label>`);
+    <label class="pf" for="alwaysIn">Código <select id="alwaysIn"><option value="0" ${always?"":"selected"}>só para outro DDD</option><option value="1" ${always?"selected":""}>em todas as ligações</option></select></label>
+    <label class="pf" for="cspIn">Operadora <select id="cspIn">${[["15","Vivo 015"],["21","Claro 021"],["41","TIM 041"],["31","Oi 031"]].map(([v,t])=>`<option value="${v}" ${v===csp?"selected":""}>${t}</option>`).join("")}</select></label>`);
   if(!cur){
     return head+`<div class="card empty"><span class="alpha">α</span><h2>Sua fila de agora acabou</h2>
       <p class="muted">${waiting?`${waiting} contato${waiting>1?"s":""} volta${waiting>1?"m":""} para a fila quando chegar a data do retorno. `:""}Quer adiantar? Puxe contatos de quem ainda tem muitos na fila.</p>
@@ -579,7 +593,7 @@ function renderQueue(){
       ${resultsCard(cur)}
       <div class="card next"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span class="eyebrow">Próximos da fila</span>
         <span style="display:flex;gap:6px">${[5,10].map(n=>`<button class="btn small" data-act="pull" data-n="${n}">Puxar +${n}</button>`).join("")}</span></div>
-        ${rest.length?`<ol>${rest.map(l=>`<li><a href="#fila" data-act="open" data-id="${esc(l.id)}" style="color:inherit">${esc(l.emp)}</a> <span>· ${esc(SEG[l.seg]?.n||"")} · ${esc(l.cid)}${l.status==="retornar"?" · retorno":l.status==="tentando"?` · ${l.tent}ª tentativa`:""}</span></li>`).join("")}</ol>`:`<p class="muted" style="margin:0">Este é o último da fila de agora.</p>`}
+        ${rest.length?`<ol>${rest.map(l=>`<li><a href="#fila" data-act="open" data-id="${esc(l.id)}" style="color:inherit">${esc(l.emp)}</a> <span>· ${esc(SEG[l.seg]?.n||"")} · ${esc(l.cid)}${l.status==="retornar"?" · retorno":l.status==="tentando"?` · ${esc(l.tent)}ª tentativa`:""}</span></li>`).join("")}</ol>`:`<p class="muted" style="margin:0">Este é o último da fila de agora.</p>`}
       </div>
     </div>
     ${scriptCard(cur)}
@@ -587,15 +601,15 @@ function renderQueue(){
 }
 
 function leadCard(l){
-  const dial=dialStr(l), other=l.ddd!==myDDD;
+  const dial=dialStr(l), other=always||l.ddd!==myDDD;
   const last=l.hist.length?l.hist[l.hist.length-1]:null;
   return `<section class="card lead" aria-label="Contato atual">
-    <div class="lead-head"><div style="min-width:0"><div class="chips" style="margin-bottom:8px"><span class="chip ${esc(l.seg)}">${esc(SEG[l.seg]?.n||"")}</span><span class="chip st-${l.status}">${ST_LABEL[l.status]}${l.status==="tentando"?` · ${l.tent}/3`:""}</span>${l.cel?`<span class="chip">Celular</span>`:`<span class="chip">Fixo</span>`}</div>
+    <div class="lead-head"><div style="min-width:0"><div class="chips" style="margin-bottom:8px"><span class="chip ${esc(l.seg)}">${esc(SEG[l.seg]?.n||"")}</span><span class="chip st-${esc(l.status)}">${esc(ST_LABEL[l.status]||l.status)}${l.status==="tentando"?` · ${esc(l.tent)}/3`:""}</span>${l.cel?`<span class="chip">Celular</span>`:`<span class="chip">Fixo</span>`}</div>
       <h1>${esc(l.emp)}</h1><div class="muted">${esc(l.ct||"Contato sem nome")}${l.dono!==me?` · fila de ${esc(l.dono)}`:""}</div></div>
       ${pinned?`<button class="btn small" data-act="unpin">Voltar para a fila</button>`:`<button class="btn small" data-act="skip" title="Pular por agora">Pular <kbd>→</kbd></button>`}</div>
     <div class="dial"><div style="min-width:0"><div class="dialrow"><a class="callbtn" href="tel:${esc(dial)}" aria-label="Ligar deste aparelho"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg></a>
       <div style="min-width:0"><span class="eyebrow">Ligar para</span><div class="num">${other?`<span class="csp">0${esc(csp)} </span>`:""}(${esc(l.ddd)}) ${esc(fmtNum(l))}</div></div></div>
-      ${other?`<div class="muted" style="font-size:12px">DDD diferente do seu: o QR já disca com o código da operadora.</div>`:""}
+      <div class="muted" style="font-size:12px">${other?(l.ddd===myDDD?"O QR disca com operadora e DDD (você escolheu incluir em todas as ligações).":"DDD diferente do seu: o QR já disca com o código da operadora."):`Mesmo DDD que o seu (${esc(myDDD)}): o QR disca só o número, como ligação local. Se o seu chip for de outro DDD, mude “Meu DDD” no topo.`}</div>
       <div class="dial-actions"><button class="btn small" data-act="copy" data-v="${esc(dial)}">Copiar número</button>
       ${l.cel?`<a class="btn small wa" href="https://wa.me/55${esc(l.ddd+l.num)}?text=${encodeURIComponent(waText(l))}" target="_blank" rel="noopener">Abrir WhatsApp</a>`:""}</div></div>
       <div class="qrbox"><div class="qr" id="qr" data-tel="${esc(dial)}"></div><div class="qr-cap">Aponte a câmera do celular</div></div></div>
@@ -641,7 +655,7 @@ function quantiPanel(l){
   const tog=`<div class="seg" role="group" aria-label="Onde registrar"><button data-act="pmode" data-v="crm" aria-current="${pmode==="crm"}">Registrar aqui no CRM</button><button data-act="pmode" data-v="forms" aria-current="${pmode==="forms"}">Anotar no forms</button></div>`;
   const tip=`<p class="muted" style="margin:0;font-size:12.5px">Faça a pergunta de forma aberta e marque a alternativa que mais se aproxima. Só leia as opções se a pessoa travar.</p>`;
   if(pmode==="forms"){
-    return `${tog}${CONFIG.forms?`<a class="btn gold" href="${esc(CONFIG.forms)}" target="_blank" rel="noopener">Abrir o forms</a>`:`<p class="muted" style="margin:0;font-size:12.5px">O link do forms ainda não foi cadastrado (aba Squad › Acesso).</p>`}${tip}
+    return `${tog}${/^https:\/\//.test(CONFIG.forms||"")?`<a class="btn gold" href="${esc(CONFIG.forms)}" target="_blank" rel="noopener">Abrir o forms</a>`:`<p class="muted" style="margin:0;font-size:12.5px">O link do forms ainda não foi cadastrado (aba Squad › Acesso).</p>`}${tip}
       <ol class="qlist">${QUANTI.map((q,i)=>`<li><b>${esc(q.t)}</b>${q.multi?` <span class="muted">(pode marcar mais de uma)</span>`:""}<div class="muted">${q.o.map(esc).join(" · ")}</div></li>`).join("")}</ol>`;
   }
   return `${tog}<div class="qprog"><div class="bar"><i style="width:${Math.round(n/QUANTI.length*100)}%"></i></div><span class="mono">${n}/${QUANTI.length}</span></div>${tip}
@@ -721,7 +735,7 @@ function repaintScript(){
 /* ===== Reunião: roteiro qualitativo com anotações ===== */
 function quantiSummary(id){
   const r=RESP[id]||{};const rows=QUANTI.filter(q=>{const v=r[q.id];return Array.isArray(v)?v.length:v});
-  if(!rows.length)return `<p class="muted" style="margin:0">A pesquisa rápida não foi registrada no CRM para este contato${(BYID[id]&&EST[id]&&EST[id].status)?"":""}. Se foi feita pelo forms, confira lá antes da reunião.</p>`;
+  if(!rows.length)return `<p class="muted" style="margin:0">A pesquisa rápida não foi registrada no CRM para este contato. Se foi feita pelo forms, confira lá antes da reunião.</p>`;
   return `<dl class="qsum">${rows.map(q=>{const v=r[q.id];return `<dt>${esc(q.t)}</dt><dd>${esc(Array.isArray(v)?v.join(", "):v)}</dd>`}).join("")}</dl>`;
 }
 function openQuali(id){
@@ -760,7 +774,8 @@ function renderMeetings(){
       <b>${esc(l.emp)}</b><div class="muted">${esc(l.ct)} · ${esc(l.cid)} · <span class="mono">(${esc(l.ddd)}) ${esc(fmtNum(l))}</span></div>
       <div style="font-size:13px;margin-top:4px">Quem vai: ${esc((l.reuniao?.quem||[]).join(", ")||"a definir")} · marcada por ${esc(l.reuniao?.por||l.dono)}</div>
       ${l.nota?`<div class="muted" style="font-size:12px;margin-top:4px">${esc(l.nota)}</div>`:""}${fitHints(l.id).length?`<div style="font-size:12px;margin-top:4px">Da pesquisa: ${esc(fitHints(l.id).join(", "))}</div>`:""}</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small gold" data-act="quali" data-id="${esc(l.id)}">${Object.keys(QUALIA[l.id]||{}).some(k=>!k.startsWith("_"))?"Ver anotações":"Roteiro da reunião"}</button>${l.reuniao?.feita?`<span class="chip st-reuniao">Feita</span>`:`<button class="btn small" data-act="done" data-id="${esc(l.id)}">Marcar como feita</button>`}${!l.reuniao?.feita&&l.reuniao?.quando?`<a class="btn small" href="${esc(gcalUrl(l))}" target="_blank" rel="noopener">Pôr no Google Agenda</a>`:""}<button class="btn small" data-act="open" data-id="${esc(l.id)}">Abrir</button></div></div>`;
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small gold" data-act="quali" data-id="${esc(l.id)}">${Object.keys(QUALIA[l.id]||{}).some(k=>!k.startsWith("_"))?"Ver anotações":"Roteiro da reunião"}</button>${l.reuniao?.feita?`<span class="chip st-reuniao">Feita</span>`:`<button class="btn small" data-act="done" data-id="${esc(l.id)}">Marcar como feita</button>`}${!l.reuniao?.feita&&l.reuniao?.quando?`<a class="btn small" href="${esc(gcalUrl(l))}" target="_blank" rel="noopener">Pôr no Google Agenda</a>`:""}${!l.reuniao?.feita?`<button class="btn small" data-act="remarcar" data-id="${esc(l.id)}">Remarcar</button>`:""}<button class="btn small" data-act="open" data-id="${esc(l.id)}">Abrir</button></div>
+    ${remarcId===l.id?`<div class="subform" style="grid-column:1/-1"><div class="row"><div><label class="lbl" for="remWhen">Nova data e horário</label><input id="remWhen" type="datetime-local" value="${l.reuniao?.quando?toLocalInput(l.reuniao.quando):toLocalInput(Date.now()+DAY)}"></div></div><div style="display:flex;gap:8px"><button class="btn gold" data-act="remsave" data-id="${esc(l.id)}">Salvar nova data</button><button class="btn" data-act="remcancel">Cancelar</button></div></div>`:""}</div>`;
   return ptop("Reuniões",`${up.length} pela frente · ${done.length} feita${done.length===1?"":"s"} · visível para todo o squad`)+`<section class="card">
     ${m.length?up.map(row).join("")+(done.length?`<div class="toolbar"><span class="eyebrow">Já feitas</span></div>`+done.map(row).join(""):""):`<div class="empty"><span class="alpha">α</span><h2>Nenhuma reunião ainda</h2><p class="muted">Quando alguém marcar <b>Aceitou reunião</b> na fila, ela aparece aqui para todo o squad, com data, horário e quem vai participar.</p></div>`}</section>`;
 }
@@ -779,7 +794,7 @@ function renderAccess(){
     </tbody></table></div>
     <div class="subform"><b style="font-size:13px">Liberar um e-mail</b>
       <div class="row"><div><label class="lbl" for="accMail">E-mail Google</label><input id="accMail" type="text" inputmode="email" placeholder="nome@gmail.com"></div>
-      <div><label class="lbl" for="accName">Nome no squad</label><select id="accName">${DEFAULT_TEAM.map(n=>`<option>${esc(n)}</option>`).join("")}</select></div></div>
+      <div><label class="lbl" for="accName">Nome no squad</label><input id="accName" type="text" list="teamNames" placeholder="Escolha ou digite" autocomplete="off"><datalist id="teamNames">${[...new Set([...DEFAULT_TEAM,...TEAM])].map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div></div>
       <div class="who"><label><input type="checkbox" id="accLeve">Fila leve</label><label><input type="checkbox" id="accAdm">Administrador</label></div>
       <div><button class="btn gold" data-act="addacc">Liberar acesso</button></div>
       <span class="legend">O nome precisa ser o mesmo que aparece nas filas, para a pessoa ver os contatos dela.</span></div>
@@ -835,7 +850,7 @@ function renderAll(){
     <select id="fdono" aria-label="Responsável"><option value="">Todo o squad</option>${TEAM.map(n=>`<option ${filt.dono===n?"selected":""}>${esc(n)}</option>`).join("")}</select>
     <button class="btn" data-act="csv">Baixar CSV</button></div>
     <div class="tblwrap" style="max-height:70vh;overflow:auto"><table class="list"><thead><tr><th>Clínica</th><th>Segmento</th><th>Cidade</th><th>Telefone</th><th>Situação</th><th>Fila</th><th></th></tr></thead>
-    <tbody>${shown.map(l=>`<tr><td><b>${esc(l.emp)}</b><div class="muted" style="font-size:12px">${esc(l.ct)}</div></td><td><span class="chip ${esc(l.seg)}">${esc(SEG[l.seg]?.n||"")}</span></td><td>${esc(l.cid)}</td><td class="mono">${esc(l.tel)}</td><td><span class="chip st-${l.status}">${ST_LABEL[l.status]}</span></td><td>${esc(l.dono)}</td><td><button class="btn small" data-act="open" data-id="${esc(l.id)}">Abrir</button></td></tr>`).join("")}</tbody></table></div>
+    <tbody>${shown.map(l=>`<tr><td><b>${esc(l.emp)}</b><div class="muted" style="font-size:12px">${esc(l.ct)}</div></td><td><span class="chip ${esc(l.seg)}">${esc(SEG[l.seg]?.n||"")}</span></td><td>${esc(l.cid)}</td><td class="mono">${esc(l.tel)}</td><td><span class="chip st-${esc(l.status)}">${esc(ST_LABEL[l.status]||l.status)}</span></td><td>${esc(l.dono)}</td><td><button class="btn small" data-act="open" data-id="${esc(l.id)}">Abrir</button></td></tr>`).join("")}</tbody></table></div>
     <div class="toolbar"><span class="muted">${A.length} contato${A.length===1?"":"s"}${A.length>shown.length?` · mostrando os primeiros ${shown.length}, use a busca para achar os outros`:""}</span></div></section>`;
 }
 
@@ -844,17 +859,22 @@ function afterRender(){
   const q=document.getElementById("qr");
   if(q&&window.qrcode){try{const c=qrcode(0,"M");c.addData("tel:"+q.dataset.tel);c.make();q.innerHTML=c.createSvgTag(4,0)}catch(e){q.textContent="QR indisponível"}}
   else if(q) q.textContent="QR indisponível";
-  const d=document.getElementById("dddIn");if(d)d.onchange=()=>{const v=d.value.replace(/\D/g,"").slice(0,2);if(v.length===2){myDDD=v;lsSet("alpha.ddd",v);render()}};
+  const d=document.getElementById("dddIn");if(d){const ap=()=>{const v=d.value.replace(/\D/g,"").slice(0,2);if(v.length===2&&v!==myDDD){myDDD=v;lsSet("alpha.ddd",v);render();toast("Meu DDD: "+v)}};d.oninput=ap;d.onchange=ap}
+  const al=document.getElementById("alwaysIn");if(al)al.onchange=()=>{always=al.value==="1";lsSet("alpha.always",always?"1":"0");render()};
   const c=document.getElementById("cspIn");if(c)c.onchange=()=>{csp=c.value;lsSet("alpha.csp",csp);render()};
   const f=document.getElementById("impFile");if(f)f.onchange=()=>{onImport(f.files&&f.files[0]);f.value=""};
   ["fq","fseg","fst","fdono"].forEach(id=>{const el=document.getElementById(id);if(!el)return;const key={fq:"q",fseg:"seg",fst:"st",fdono:"dono"}[id];
     el[id==="fq"?"oninput":"onchange"]=()=>{filt[key]=el.value;const pos=el.selectionStart;render();const n=document.getElementById(id);if(id==="fq"){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}});
 }
 
-function currentLead(){if(pinned)return L(pinned);const q=queueOf(me).filter(l=>!skipped.has(l.id)&&(l.status==="novo"||isDue(l)));return q[0]||null}
+function currentLead(){
+  if(pinned)return BYID[pinned]?L(pinned):null;
+  if(curId&&BYID[curId]&&!skipped.has(curId)){const l=L(curId);if(l.dono===me&&OPEN.has(l.status))return l}
+  const q=queueOf(me).filter(l=>!skipped.has(l.id)&&(l.status==="novo"||isDue(l)));curId=q[0]?q[0].id:null;return q[0]||null}
 
 function record(k){
-  const l=currentLead();if(!l||!me)return;
+  if(Date.now()<lockUntil)return;
+  const l=currentLead();if(!l||!me)return;lockUntil=Date.now()+700;
   const nota=(document.getElementById("nota")?.value||"").trim();
   const p="estado/"+l.id+"/";const hk=rdb.ref("hist/"+l.id).push().key;
   const m={};m["hist/"+l.id+"/"+hk]={t:Date.now(),by:me,r:k};
@@ -868,11 +888,12 @@ function record(k){
   if(k==="fora")m[p+"status"]="fora";
   if(k==="err")m[p+"status"]="errado";
   W(m);
-  noteDraft={id:null,val:""};pinned=null;scriptTab="ligacao";toast(`${RES[k].t} · +${RES[k].p} pt${RES[k].p>1?"s":""}`);render();window.scrollTo({top:0,behavior:"smooth"});
+  noteDraft={id:null,val:""};pinned=null;curId=null;scriptTab="ligacao";toast(`${RES[k].t} · +${RES[k].p} pt${RES[k].p>1?"s":""}`);render();window.scrollTo({top:0,behavior:"smooth"});
 }
 
-function move(from,to,n){
-  const pool=all().filter(l=>l.dono===from&&fresh(l)).sort((a,b)=>b.o-a.o).slice(0,n);
+function move(from,to,n,protect=0){
+  const fr=all().filter(l=>l.dono===from&&fresh(l)).sort((a,b)=>a.o-b.o);
+  const pool=fr.slice(protect).reverse().slice(0,n);
   if(!pool.length)return 0;
   const maxO=Math.max(0,...all().filter(l=>l.dono===to).map(l=>l.o||0));
   const m={};pool.forEach((l,i)=>{m["estado/"+l.id+"/dono"]=to;m["estado/"+l.id+"/o"]=maxO+i+1});
@@ -881,10 +902,10 @@ function move(from,to,n){
 function pull(n){
   let left=n,got=0;
   while(left>0){
-    const counts=TEAM.filter(t=>t!==me).map(t=>[t,all().filter(l=>l.dono===t&&fresh(l)).length]).sort((a,b)=>b[1]-a[1]);
+    const counts=TEAM.filter(t=>t!==me).map(t=>[t,Math.max(0,all().filter(l=>l.dono===t&&fresh(l)).length-3)]).sort((a,b)=>b[1]-a[1]);
     if(!counts.length||counts[0][1]===0)break;
     const take=Math.min(left,Math.max(1,Math.ceil(left/2)),counts[0][1]);
-    const k=move(counts[0][0],me,take);if(!k)break;got+=k;left-=k;
+    const k=move(counts[0][0],me,take,3);if(!k)break;got+=k;left-=k;
   }
   toast(got?`Você puxou ${got} contato${got>1?"s":""}`:"Ninguém tem contatos novos sobrando");render();
 }
@@ -971,7 +992,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="meBtn"){const m=document.getElementById("acctModal");document.getElementById("acctTxt").innerHTML=`<b>${esc(me||"Sem acesso")}</b><br><span class="muted">${esc(USER&&USER.email)}</span>${isAdmin?` <span class="light-tag">admin</span>`:""}`;m.hidden=false;return}
   if(t.dataset.stab){scriptTab=t.dataset.stab;repaintScript();document.getElementById("scriptCard")?.scrollIntoView({block:"nearest"});return}
   if(t.dataset.range){rankRange=t.dataset.range;render();return}
-  if(t.dataset.res&&!t.dataset.act){const k=t.dataset.res;if(k==="ret"||k==="reu"){document.getElementById("subform").innerHTML=subformFor(k);document.querySelector("#subform input")?.focus()}else record(k);return}
+  if(t.dataset.res&&!t.dataset.act){if(Date.now()<lockUntil)return;const k=t.dataset.res;if(k==="ret"||k==="reu"){document.getElementById("subform").innerHTML=subformFor(k);document.querySelector("#subform input")?.focus()}else record(k);return}
   const a=t.dataset.act;
   if(a==="login")gLogin();
   if(a==="logout"||a==="signout")gOut();
@@ -979,8 +1000,9 @@ document.addEventListener("click",async e=>{
   if(a==="reload")location.reload();
   if(a==="setup"){const nome=document.getElementById("setupName").value;t.disabled=true;
     try{await rdb.ref("acesso/"+ME_KEY).set({nome,admin:true})}catch(err){t.disabled=false;toast("Não deu: "+(err.code||err.message))}}
-  if(a==="addacc"){const mail=document.getElementById("accMail").value.trim();const nome=document.getElementById("accName").value;
+  if(a==="addacc"){const mail=document.getElementById("accMail").value.trim();const nome=document.getElementById("accName").value.trim();
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)){toast("Confira o e-mail");return}
+    if(!nome||nome.length>40){toast("Coloque o nome da pessoa no squad");return}
     const v={nome};if(document.getElementById("accLeve").checked)v.leve=true;if(document.getElementById("accAdm").checked)v.admin=true;
     try{await rdb.ref("acesso/"+ek(mail)).set(v);toast(`${nome} liberado(a)`)}catch(err){toast("Não salvou: "+(err.code||err.message))}}
   if(a==="rmacc"){const k=t.dataset.k;if(!confirm(`Tirar o acesso de ${unk(k)}?`))return;try{await rdb.ref("acesso/"+k).remove();toast("Acesso removido")}catch(err){toast("Não removeu: "+(err.code||err.message))}}
@@ -996,7 +1018,7 @@ document.addEventListener("click",async e=>{
   if(a==="impcancel"){IMP=null;paintImp()}
   if(a==="confirm")record(t.dataset.res);
   if(a==="cancel"){document.getElementById("subform").innerHTML="";if(dirty){dirty=false;render()}}
-  if(a==="skip"){const l=currentLead();if(l)skipped.add(l.id);render()}
+  if(a==="skip"){const l=currentLead();if(l)skipped.add(l.id);curId=null;render()}
   if(a==="unpin"){pinned=null;render()}
   if(a==="open"){e.preventDefault();pinned=t.dataset.id;view="fila";location.hash="fila";render();window.scrollTo({top:0})}
   if(a==="copy"){copy(t.dataset.v,"Número copiado")}
@@ -1007,17 +1029,22 @@ document.addEventListener("click",async e=>{
   if(a==="balance"){let moved=0;
     for(const n of TEAM){if(LIGHT.has(n))continue;const fr=all().filter(l=>l.dono===n&&fresh(l)).length;if(fr>0)continue;
       const donor=TEAM.filter(x=>x!==n).map(x=>[x,all().filter(l=>l.dono===x&&fresh(l)).length]).sort((a,b)=>b[1]-a[1])[0];
-      if(donor&&donor[1]>10)moved+=move(donor[0],n,10)}
+      if(donor&&donor[1]>13)moved+=move(donor[0],n,10,3)}
     toast(moved?`${moved} contatos redistribuídos`:"Todo mundo ainda tem contatos novos");render()}
+  if(a==="remarcar"){remarcId=t.dataset.id;render();document.getElementById("remWhen")?.focus();return}
+  if(a==="remcancel"){remarcId=null;render();return}
+  if(a==="remsave"){const v=document.getElementById("remWhen").value;if(!v){toast("Escolha a nova data");return}
+    W({["estado/"+t.dataset.id+"/reuniao/quando"]:new Date(v).getTime()});remarcId=null;toast("Reunião remarcada");render();return}
   if(a==="done"){W({["estado/"+t.dataset.id+"/reuniao/feita"]:true});if(qualiOpen){toast("Reunião marcada como feita");closeQuali()}else render()}
   if(a==="csv")exportCsv();
 });
 async function copy(txt,msg){try{await navigator.clipboard.writeText(txt);toast(msg)}catch(e){toast("Selecione e copie manualmente")}}
 document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){if(!document.getElementById("qualiModal").hidden){closeQuali();return}["acctModal","impModal"].forEach(id=>{document.getElementById(id).hidden=true});IMP=null;return}
   if(phase!=="app"||view!=="fila"||e.metaKey||e.ctrlKey||e.altKey)return;
   if(/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName))return;
   if(!document.getElementById("acctModal").hidden||!document.getElementById("impModal").hidden||!document.getElementById("qualiModal").hidden)return;
-  if(e.key==="ArrowRight"){const l=currentLead();if(l&&!pinned){skipped.add(l.id);render()}return}
+  if(e.key==="ArrowRight"){const l=currentLead();if(l&&!pinned){skipped.add(l.id);curId=null;render()}return}
   const k=Object.entries(RES).find(([,r])=>r.k===e.key.toLowerCase());
   if(k){e.preventDefault();document.querySelector(`[data-res="${k[0]}"]`)?.click()}
 });
@@ -1026,7 +1053,8 @@ window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(["fi
 function exportCsv(){
   const head=["id","empresa","contato","segmento","cidade","telefone","email","fila","situacao","tentativas","ultima_acao","por","quando","reuniao","participantes","anotacao","pesquisa_registrada_por",...QUANTI.map((q,i)=>`P${i+1}. ${q.t}`),"reuniao_anotada_por",...QUALI_Q.map((q,i)=>`Q${i+1}. ${q.t}`),"Resumo da reunião"];
   const rows=all().map(l=>{const h=l.hist[l.hist.length-1];const r=RESP[l.id]||{},qa=QUALIA[l.id]||{};return [l.id,l.emp,l.ct,SEG[l.seg]?.n||"",l.cid,l.tel,l.em,l.dono,ST_LABEL[l.status],l.tent,h?RES[h.r]?.t:"",h?h.by:"",h?fmtDT(h.t):"",l.reuniao?.quando?fmtDT(l.reuniao.quando):"",(l.reuniao?.quem||[]).join(" / "),l.nota||"",r._por||"",...QUANTI.map(q=>Array.isArray(r[q.id])?r[q.id].join(" / "):(r[q.id]||"")),qa._por||"",...QUALI_Q.map(q=>qa[q.id]||""),qa.resumo||""]});
-  const csv=[head,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const cell=v=>{let x=String(v??"");if(/^[=+\-@\t\r]/.test(x))x="'"+x;return `"${x.replace(/"/g,'""')}"`};
+  const csv=[head,...rows].map(r=>r.map(cell).join(",")).join("\n");
   const url=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));
   const a=document.createElement("a");a.href=url;a.download="alpha-contatos.csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
